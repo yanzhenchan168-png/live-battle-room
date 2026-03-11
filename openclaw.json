@@ -1,289 +1,265 @@
 {
+  "meta": {
+    "lastTouchedVersion": "2026.3.8",
+    "lastTouchedAt": "2026-03-11T04:49:55.144Z"
+  },
+  "wizard": {
+    "lastRunAt": "2026-02-05T16:16:05.545Z",
+    "lastRunVersion": "2026.2.1",
+    "lastRunCommand": "onboard",
+    "lastRunMode": "local"
+  },
+  "browser": {
+    "enabled": true,
+    "color": "#00AA00",
+    "executablePath": "/opt/google/chrome/chrome",
+    "headless": false,
+    "noSandbox": true,
+    "defaultProfile": "openclaw",
+    "extraArgs": [
+      "--window-size=1920,1080",
+      "--test-type"
+    ]
+  },
+  "models": {
+    "providers": {
+      "coze": {
+        "baseUrl": "${COZE_INTEGRATION_MODEL_BASE_URL}",
+        "apiKey": "${COZE_WORKLOAD_IDENTITY_API_KEY}",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "auto",
+            "name": "自动",
+            "api": "openai-completions",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 204800,
+            "maxTokens": 8192
+          },
+          {
+            "id": "kimi-k2-5-260127",
+            "name": "Kimi K2.5",
+            "api": "openai-completions",
+            "reasoning": false,
+            "input": [
+              "text",
+              "image"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 262144,
+            "maxTokens": 8192
+          },
+          {
+            "id": "glm-4-7-251222",
+            "name": "GLM 4.7",
+            "api": "openai-completions",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 204800,
+            "maxTokens": 8192
+          },
+          {
+            "id": "deepseek-v3-2-251201",
+            "name": "DeepSeek 3.2",
+            "api": "openai-completions",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 131072,
+            "maxTokens": 8192
+          },
+          {
+            "id": "doubao-seed-1-8-251228",
+            "name": "豆包 1.8",
+            "api": "openai-completions",
+            "reasoning": false,
+            "input": [
+              "text",
+              "image"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 262144,
+            "maxTokens": 8192
+          },
+          {
+            "id": "doubao-seed-2-0-pro-260215",
+            "name": "豆包 2.0 Pro",
+            "api": "openai-completions",
+            "reasoning": true,
+            "input": [
+              "text",
+              "image"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 262144,
+            "maxTokens": 8192
+          },
+          {
+            "id": "doubao-seed-2-0-lite-260215",
+            "name": "豆包 2.0 Lite",
+            "api": "openai-completions",
+            "reasoning": false,
+            "input": [
+              "text",
+              "image"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 262144,
+            "maxTokens": 8192
+          },
+          {
+            "id": "doubao-seed-2-0-mini-260215",
+            "name": "豆包 2.0 Mini",
+            "api": "openai-completions",
+            "reasoning": false,
+            "input": [
+              "text",
+              "image"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 262144,
+            "maxTokens": 8192
+          }
+        ]
+      }
+    }
+  },
   "agents": {
     "defaults": {
-      "compaction": {
-        "mode": "safeguard"
+      "model": {
+        "primary": "coze/kimi-k2-5-260127"
       },
       "imageModel": {
         "primary": "coze/doubao-seed-1-8-251228"
       },
-      "maxConcurrent": 4,
-      "model": {
-        "primary": "coze/auto"
+      "workspace": "/workspace/projects/workspace",
+      "compaction": {
+        "mode": "safeguard"
       },
+      "maxConcurrent": 4,
       "subagents": {
         "maxConcurrent": 8
-      },
-      "workspace": "/workspace/projects/workspace"
+      }
     }
   },
-  "browser": {
-    "color": "#00AA00",
-    "defaultProfile": "openclaw",
-    "enabled": true,
-    "executablePath": "/opt/google/chrome/chrome",
-    "extraArgs": [
-      "--window-size=1920,1080",
-      "--test-type"
-    ],
-    "headless": false,
-    "noSandbox": true
+  "tools": {
+    "web": {
+      "search": {
+        "enabled": false
+      },
+      "fetch": {
+        "enabled": false
+      }
+    }
+  },
+  "messages": {
+    "ackReactionScope": "group-mentions"
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
   },
   "channels": {
     "feishu": {
-      "allowFrom": [],
-      "appId": "",
-      "appSecret": "",
+      "allowFrom": [
+        "ou_1d53d502253920d62b37b99fe9583916"
+      ],
+      "appId": "cli_a93a487c818a5cd6",
+      "appSecret": "y1NFaH3DCBac9JASjYvlDeMxEQ2V8cbL",
       "connectionMode": "websocket",
-      "dmPolicy": "pairing",
+      "dmPolicy": "allowlist",
       "domain": "feishu",
-      "enabled": false,
+      "enabled": true,
       "groupAllowFrom": [],
       "groupPolicy": "open",
       "requireMention": true,
       "streaming": true
     }
   },
-  "commands": {
-    "native": "auto",
-    "nativeSkills": "auto",
-    "ownerDisplay": "raw",
-    "restart": true
-  },
   "gateway": {
-    "auth": {
-      "mode": "token",
-      "token": "97535bf0-6b93-4433-beaf-9aaba5c36297"
-    },
+    "port": 5000,
+    "mode": "local",
     "bind": "loopback",
     "controlUi": {
+      "enabled": true,
       "allowedOrigins": [
         "https://dev.coze.site"
       ],
-      "dangerouslyDisableDeviceAuth": true,
-      "enabled": true
+      "dangerouslyDisableDeviceAuth": true
     },
-    "mode": "local",
-    "nodes": {
-      "browser": {
-        "mode": "off"
-      }
-    },
-    "port": 5000,
-    "tailscale": {
-      "mode": "off",
-      "resetOnExit": false
+    "auth": {
+      "mode": "token",
+      "token": "b151cbfb-d51a-460b-befb-90f4887fd4e4"
     },
     "trustedProxies": [
       "::1",
       "127.0.0.1"
-    ]
-  },
-  "messages": {
-    "ackReactionScope": "group-mentions"
-  },
-  "meta": {
-    "lastTouchedAt": "2026-03-09T15:34:40.682Z",
-    "lastTouchedVersion": "2026.3.8"
-  },
-  "models": {
-    "providers": {
-      "coze": {
-        "api": "openai-completions",
-        "apiKey": "${COZE_WORKLOAD_IDENTITY_API_KEY}",
-        "baseUrl": "${COZE_INTEGRATION_MODEL_BASE_URL}",
-        "models": [
-          {
-            "api": "openai-completions",
-            "contextWindow": 204800,
-            "cost": {
-              "cacheRead": 0,
-              "cacheWrite": 0,
-              "input": 0,
-              "output": 0
-            },
-            "id": "auto",
-            "input": [
-              "text"
-            ],
-            "maxTokens": 8192,
-            "name": "自动",
-            "reasoning": false
-          },
-          {
-            "api": "openai-completions",
-            "contextWindow": 262144,
-            "cost": {
-              "cacheRead": 0,
-              "cacheWrite": 0,
-              "input": 0,
-              "output": 0
-            },
-            "id": "kimi-k2-5-260127",
-            "input": [
-              "text",
-              "image"
-            ],
-            "maxTokens": 8192,
-            "name": "Kimi K2.5",
-            "reasoning": false
-          },
-          {
-            "api": "openai-completions",
-            "contextWindow": 204800,
-            "cost": {
-              "cacheRead": 0,
-              "cacheWrite": 0,
-              "input": 0,
-              "output": 0
-            },
-            "id": "glm-4-7-251222",
-            "input": [
-              "text"
-            ],
-            "maxTokens": 8192,
-            "name": "GLM 4.7",
-            "reasoning": false
-          },
-          {
-            "api": "openai-completions",
-            "contextWindow": 131072,
-            "cost": {
-              "cacheRead": 0,
-              "cacheWrite": 0,
-              "input": 0,
-              "output": 0
-            },
-            "id": "deepseek-v3-2-251201",
-            "input": [
-              "text"
-            ],
-            "maxTokens": 8192,
-            "name": "DeepSeek 3.2",
-            "reasoning": false
-          },
-          {
-            "api": "openai-completions",
-            "contextWindow": 262144,
-            "cost": {
-              "cacheRead": 0,
-              "cacheWrite": 0,
-              "input": 0,
-              "output": 0
-            },
-            "id": "doubao-seed-1-8-251228",
-            "input": [
-              "text",
-              "image"
-            ],
-            "maxTokens": 8192,
-            "name": "豆包 1.8",
-            "reasoning": false
-          },
-          {
-            "api": "openai-completions",
-            "contextWindow": 262144,
-            "cost": {
-              "cacheRead": 0,
-              "cacheWrite": 0,
-              "input": 0,
-              "output": 0
-            },
-            "id": "doubao-seed-2-0-pro-260215",
-            "input": [
-              "text",
-              "image"
-            ],
-            "maxTokens": 8192,
-            "name": "豆包 2.0 Pro",
-            "reasoning": true
-          },
-          {
-            "api": "openai-completions",
-            "contextWindow": 262144,
-            "cost": {
-              "cacheRead": 0,
-              "cacheWrite": 0,
-              "input": 0,
-              "output": 0
-            },
-            "id": "doubao-seed-2-0-lite-260215",
-            "input": [
-              "text",
-              "image"
-            ],
-            "maxTokens": 8192,
-            "name": "豆包 2.0 Lite",
-            "reasoning": false
-          },
-          {
-            "api": "openai-completions",
-            "contextWindow": 262144,
-            "cost": {
-              "cacheRead": 0,
-              "cacheWrite": 0,
-              "input": 0,
-              "output": 0
-            },
-            "id": "doubao-seed-2-0-mini-260215",
-            "input": [
-              "text",
-              "image"
-            ],
-            "maxTokens": 8192,
-            "name": "豆包 2.0 Mini",
-            "reasoning": false
-          }
-        ]
-      }
-    }
-  },
-  "plugins": {
-    "allow": [
-      "wecom",
-      "feishu-openclaw-plugin"
     ],
-    "entries": {
-      "feishu": {
-        "enabled": false
-      },
-      "feishu-openclaw-plugin": {
-        "enabled": true
-      },
-      "wecom": {
-        "enabled": true
-      }
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
     },
-    "installs": {
-      "feishu-openclaw-plugin": {
-        "installPath": "/workspace/projects/extensions/feishu-openclaw-plugin",
-        "installedAt": "2026-03-09T15:34:40.278Z",
-        "integrity": "sha512-77PzCEESdPgqL9jgoV8I3difKOuC/iRiECYLUT+2rLRD1Oy+CHtTXuYwHwztHvbY2sWitev/5rN/TseDHo2FVg==",
-        "resolvedAt": "2026-03-09T15:34:38.418Z",
-        "resolvedName": "@larksuiteoapi/feishu-openclaw-plugin",
-        "resolvedSpec": "@larksuiteoapi/feishu-openclaw-plugin@2026.3.8",
-        "resolvedVersion": "2026.3.8",
-        "shasum": "d4acc5a0433aaf77b0d87a028fa627b38efdb4cd",
-        "source": "npm",
-        "spec": "@larksuiteoapi/feishu-openclaw-plugin",
-        "version": "2026.3.8"
-      },
-      "wecom": {
-        "installPath": "/workspace/projects/extensions/wecom",
-        "installedAt": "2026-03-08T06:38:35.736Z",
-        "integrity": "sha512-ql8jn4CCqFS/26VHqi0pQakRAM4rzlo4anZtUKnjoAc1Pvf+umq6AgyIZ8U4aNsN+BO8rjjhmu/2vGXX87A0zQ==",
-        "resolvedAt": "2026-03-08T06:36:42.450Z",
-        "resolvedName": "@wecom/wecom-openclaw-plugin",
-        "resolvedSpec": "@wecom/wecom-openclaw-plugin@1.0.0",
-        "resolvedVersion": "1.0.0",
-        "shasum": "d903bafcb970107b1d4629d1b26d9f8b4e6b5121",
-        "source": "npm",
-        "spec": "@wecom/wecom-openclaw-plugin",
-        "version": "1.0.0"
+    "nodes": {
+      "browser": {
+        "mode": "off"
       }
     }
   },
   "skills": {
+    "install": {
+      "nodeManager": "npm"
+    },
     "entries": {
       "1password": {
         "enabled": false
@@ -372,25 +348,51 @@
       "wacli": {
         "enabled": false
       }
-    },
-    "install": {
-      "nodeManager": "npm"
     }
   },
-  "tools": {
-    "web": {
-      "fetch": {
+  "plugins": {
+    "allow": [
+      "wecom",
+      "feishu-openclaw-plugin"
+    ],
+    "entries": {
+      "feishu": {
         "enabled": false
       },
-      "search": {
-        "enabled": false
+      "feishu-openclaw-plugin": {
+        "enabled": true
+      },
+      "wecom": {
+        "enabled": true
+      }
+    },
+    "installs": {
+      "feishu-openclaw-plugin": {
+        "source": "npm",
+        "spec": "@larksuiteoapi/feishu-openclaw-plugin",
+        "installPath": "/workspace/projects/extensions/feishu-openclaw-plugin",
+        "version": "2026.3.8",
+        "resolvedName": "@larksuiteoapi/feishu-openclaw-plugin",
+        "resolvedVersion": "2026.3.8",
+        "resolvedSpec": "@larksuiteoapi/feishu-openclaw-plugin@2026.3.8",
+        "integrity": "sha512-77PzCEESdPgqL9jgoV8I3difKOuC/iRiECYLUT+2rLRD1Oy+CHtTXuYwHwztHvbY2sWitev/5rN/TseDHo2FVg==",
+        "shasum": "d4acc5a0433aaf77b0d87a028fa627b38efdb4cd",
+        "resolvedAt": "2026-03-09T15:34:38.418Z",
+        "installedAt": "2026-03-09T15:34:40.278Z"
+      },
+      "wecom": {
+        "source": "npm",
+        "spec": "@wecom/wecom-openclaw-plugin",
+        "installPath": "/workspace/projects/extensions/wecom",
+        "version": "1.0.0",
+        "resolvedName": "@wecom/wecom-openclaw-plugin",
+        "resolvedVersion": "1.0.0",
+        "resolvedSpec": "@wecom/wecom-openclaw-plugin@1.0.0",
+        "integrity": "sha512-ql8jn4CCqFS/26VHqi0pQakRAM4rzlo4anZtUKnjoAc1Pvf+umq6AgyIZ8U4aNsN+BO8rjjhmu/2vGXX87A0zQ==",
+        "shasum": "d903bafcb970107b1d4629d1b26d9f8b4e6b5121",
+        "resolvedAt": "2026-03-08T06:36:42.450Z",
+        "installedAt": "2026-03-08T06:38:35.736Z"
       }
     }
-  },
-  "wizard": {
-    "lastRunAt": "2026-02-05T16:16:05.545Z",
-    "lastRunCommand": "onboard",
-    "lastRunMode": "local",
-    "lastRunVersion": "2026.2.1"
   }
 }
