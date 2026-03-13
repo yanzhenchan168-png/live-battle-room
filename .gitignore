@@ -18,3 +18,9 @@
 !/.npmrc
 !/src/
 !/public/
+
+# 4. 环境变量文件（不要提交敏感信息）
+.env
+.env.local
+.env.development
+.env.production
