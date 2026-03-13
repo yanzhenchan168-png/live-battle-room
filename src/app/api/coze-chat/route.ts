@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
           bot_id: botId,
           user_id: `user_${Date.now()}`,
           additional_messages: [{ role: 'user', content }],
-          stream: true,  // 使用流式模式
+          stream: false,  // 临时改为非流式模式测试
         }),
         signal: controller.signal,
       });
@@ -57,57 +57,39 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 处理流式响应
-      const reader = res.body?.getReader();
-      if (!reader) {
-        throw new Error('No response body');
-      }
+      // 处理非流式响应
+      const data = await res.json();
+      console.log('Coze API response:', JSON.stringify(data, null, 2));
 
-      const decoder = new TextDecoder();
-      let fullContent = '';
-      let eventType = '';
-      let eventStatus = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        
-        if (done) break;
-        
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            
-            try {
-              const event = JSON.parse(data);
-              console.log('Stream event:', event);
-              
-              if (event.event === 'conversation.message.delta') {
-                if (event.data?.content) {
-                  fullContent += event.data.content;
-                }
-              } else if (event.event === 'conversation.message.completed') {
-                eventType = 'completed';
-                eventStatus = event.data?.status || '';
-              }
-            } catch (e) {
-              // 忽略解析错误
-            }
-          }
-        }
-      }
-
-      console.log('Stream completed, total content length:', fullContent.length);
-
-      if (!fullContent) {
-        console.error('No content received from stream');
+      if (data.code !== 0) {
+        console.error('Coze API returned error code:', data);
         return NextResponse.json(
-          { error: 'No content received', details: 'Stream ended without content' },
+          { error: `Coze API error: ${data.code}`, message: data.msg || 'Unknown error' },
           { status: 500 }
         );
       }
+
+      // 检查响应中的消息
+      if (!data.data?.messages || data.data.messages.length === 0) {
+        console.error('No messages in response:', JSON.stringify(data, null, 2));
+        return NextResponse.json(
+          { error: 'No messages in response', details: 'Coze returned empty messages' },
+          { status: 500 }
+        );
+      }
+
+      // 找到助手的回复消息
+      const assistantMessage = data.data.messages.find((msg: any) => msg.role === 'assistant' && msg.type === 'answer');
+      if (!assistantMessage || !assistantMessage.content) {
+        console.error('No assistant message found:', JSON.stringify(data.data.messages, null, 2));
+        return NextResponse.json(
+          { error: 'No assistant message found', details: 'No assistant reply in response' },
+          { status: 500 }
+        );
+      }
+
+      const fullContent = assistantMessage.content;
+      console.log('Response content length:', fullContent.length);
 
       // 构造响应格式
       const response = {
