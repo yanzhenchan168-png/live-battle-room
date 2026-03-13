@@ -122,18 +122,39 @@ export async function POST(request: NextRequest) {
       console.log('Stream completed');
       console.log('Total content length:', fullContent.length);
       console.log('Total event count:', eventCount);
-      console.log('All chunks:', allChunks.substring(0, 500));
+      console.log('All chunks (first 500 chars):', allChunks.substring(0, 500));
 
       if (!fullContent) {
         console.error('No content received from stream');
-        console.error('All chunks:', allChunks);
+        console.error('All chunks (first 1000 chars):', allChunks.substring(0, 1000));
+
+        // 尝试从所有事件中提取 verbose 消息
+        const verboseMessages: any[] = [];
+        const lines = allChunks.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            try {
+              const event = JSON.parse(data);
+              if (event.event === 'conversation.message.completed') {
+                verboseMessages.push(event.data);
+              }
+            } catch (e) {
+              // 忽略解析错误
+            }
+          }
+        }
+
+        console.log('Verbose messages found:', verboseMessages.length);
+
         return NextResponse.json(
           {
             error: 'No content received',
             details: 'Stream ended without content',
             debug: {
               eventCount,
-              chunks: allChunks.substring(0, 1000)
+              chunks: allChunks.substring(0, 1000),
+              verboseMessages: verboseMessages.slice(0, 3)
             }
           },
           { status: 500 }
