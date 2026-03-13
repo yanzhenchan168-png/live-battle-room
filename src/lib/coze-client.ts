@@ -13,6 +13,8 @@ export class CozeLiveClient {
     payload: any
   ): Promise<any> {
     try {
+      console.log('sendCommand called:', { command, payload });
+
       const res = await fetch(this.apiUrl, {
         method: 'POST',
         headers: {
@@ -23,10 +25,13 @@ export class CozeLiveClient {
 
       if (!res.ok) {
         const errorData = await res.json();
+        console.error('API route error:', errorData);
         throw new Error(errorData.error || `API error: ${res.status}`);
       }
 
       const data: CozeChatResponse = await res.json();
+      console.log('Raw API response:', JSON.stringify(data, null, 2));
+
       return this.parseResponse(data, command);
     } catch (error) {
       console.error('Coze API call failed:', error);
@@ -35,11 +40,19 @@ export class CozeLiveClient {
   }
 
   private parseResponse(raw: CozeChatResponse, command: string | null): any {
+    console.log('Parsing response:', JSON.stringify(raw, null, 2));
+
+    if (!raw) {
+      throw new Error('No response received');
+    }
+
     if (!raw.messages || raw.messages.length === 0) {
-      throw new Error('No messages in response');
+      console.error('No messages in response. Full response:', JSON.stringify(raw, null, 2));
+      throw new Error('No messages in response. Coze API returned empty messages.');
     }
 
     const content = raw.messages[0].content;
+    console.log('Message content:', content);
 
     try {
       if (command === '/roi_calc') {
@@ -52,6 +65,7 @@ export class CozeLiveClient {
       return content;
     } catch (error) {
       console.error('Failed to parse response:', error);
+      console.error('Content that failed to parse:', content);
       return { raw_content: content };
     }
   }
