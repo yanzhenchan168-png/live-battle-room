@@ -25,9 +25,6 @@ const nextConfig = {
   // 生产源码映射
   productionBrowserSourceMaps: false,
   
-  // 输出模式
-  output: 'standalone',
-  
   // 实验性功能
   experimental: {
     optimizePackageImports: ['lucide-react', 'recharts'],
