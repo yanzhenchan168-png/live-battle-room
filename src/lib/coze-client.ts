@@ -1,43 +1,29 @@
 import { CozeChatResponse } from '@/types/battle';
 
 export class CozeLiveClient {
-  private botId: string;
-  private token: string;
+  private apiUrl: string;
 
   constructor() {
-    this.botId = process.env.NEXT_PUBLIC_COZE_BOT_ID || '';
-    this.token = process.env.COZE_TOKEN || '';
-    
-    if (!this.botId || !this.token) {
-      console.warn('Coze API credentials not configured');
-    }
+    // 使用本地 API 路由
+    this.apiUrl = '/api/coze-chat';
   }
 
   async sendCommand(
     command: '/roi_calc' | '/traffic_diag' | '/script_gen' | null,
     payload: any
   ): Promise<any> {
-    const content = command 
-      ? `${command} ${JSON.stringify(payload)}`
-      : JSON.stringify(payload);
-
     try {
-      const res = await fetch('https://api.coze.cn/v3/chat', {
+      const res = await fetch(this.apiUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          bot_id: this.botId,
-          user_id: `user_${Date.now()}`,
-          additional_messages: [{ role: 'user', content }],
-          stream: false,
-        }),
+        body: JSON.stringify({ command, payload }),
       });
 
       if (!res.ok) {
-        throw new Error(`Coze API error: ${res.status} ${res.statusText}`);
+        const errorData = await res.json();
+        throw new Error(errorData.error || `API error: ${res.status}`);
       }
 
       const data: CozeChatResponse = await res.json();
