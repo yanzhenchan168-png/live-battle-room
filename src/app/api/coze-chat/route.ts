@@ -123,6 +123,7 @@ export async function POST(request: NextRequest) {
       
     } catch (fetchError) {
       clearTimeout(timeout);
+      console.error('Fetch error:', fetchError);
       
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
         console.error('Request timeout');
@@ -132,10 +133,28 @@ export async function POST(request: NextRequest) {
         );
       }
       
-      throw fetchError;
+      console.error('Fetch error details:', {
+        name: fetchError instanceof Error ? fetchError.name : 'Unknown',
+        message: fetchError instanceof Error ? fetchError.message : String(fetchError),
+        stack: fetchError instanceof Error ? fetchError.stack : undefined
+      });
+      
+      return NextResponse.json(
+        { 
+          error: 'Fetch failed', 
+          message: fetchError instanceof Error ? fetchError.message : 'Unknown error',
+          stack: fetchError instanceof Error ? fetchError.stack : undefined
+        },
+        { status: 500 }
+      );
     }
   } catch (error) {
     console.error('API route error:', error);
+    console.error('Error details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return NextResponse.json(
       { 
         error: 'Internal server error', 
