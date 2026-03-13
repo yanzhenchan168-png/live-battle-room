@@ -69,6 +69,8 @@ export async function POST(request: NextRequest) {
       let eventCount = 0;
       let eventType = '';
       let eventStatus = '';
+      const eventTypes = new Set<string>();
+      const allMessages: any[] = [];
 
       console.log('Starting to read stream...');
 
@@ -77,6 +79,7 @@ export async function POST(request: NextRequest) {
 
         if (done) {
           console.log('Stream reading completed, total events:', eventCount);
+          console.log('Event types seen:', Array.from(eventTypes));
           break;
         }
 
@@ -85,35 +88,40 @@ export async function POST(request: NextRequest) {
         eventCount++;
 
         const lines = chunk.split('\n');
+        let currentEventType = '';
+        let currentData = '';
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
+          if (line.startsWith('event:')) {
+            // 事件类型行
+            currentEventType = line.slice(6).trim();
+            eventTypes.add(currentEventType);
+          } else if (line.startsWith('data:')) {
+            // 数据行
+            const data = line.startsWith('data: ') ? line.slice(6) : line.slice(5);
 
             try {
               const event = JSON.parse(data);
-              console.log(`Stream event ${eventCount}:`, JSON.stringify(event));
 
-              if (event.event === 'conversation.message.delta') {
-                if (event.data?.content) {
-                  fullContent += event.data.content;
-                  console.log(`Content added, total length: ${fullContent.length}`);
+              if (currentEventType === 'conversation.message.delta') {
+                // 检查 content 或 reasoning_content
+                if (event.content) {
+                  fullContent += event.content;
+                } else if (event.reasoning_content) {
+                  fullContent += event.reasoning_content;
                 }
-              } else if (event.event === 'conversation.message.completed') {
+              } else if (currentEventType === 'conversation.message.completed') {
                 eventType = 'completed';
-                eventStatus = event.data?.status || '';
-                console.log(`Message completed, status: ${eventStatus}`);
-              } else if (event.event === 'conversation.chat.completed') {
-                console.log(`Chat completed, status: ${event.data?.status}`);
-                if (event.data?.conversation_id) {
-                  console.log(`Conversation ID: ${event.data.conversation_id}`);
-                }
-              } else if (event.event === 'error') {
-                console.error('Stream error event:', event.data);
-                throw new Error(`Stream error: ${event.data?.msg || 'Unknown error'}`);
+                eventStatus = event.status || '';
+                allMessages.push(event);
+              } else if (currentEventType === 'conversation.chat.completed') {
+                console.log('Chat completed');
+              } else if (currentEventType === 'error') {
+                console.error('Stream error event:', event);
+                throw new Error(`Stream error: ${event.msg || 'Unknown error'}`);
               }
             } catch (e) {
-              console.log('Failed to parse event data:', line);
+              // 忽略解析错误
             }
           }
         }
