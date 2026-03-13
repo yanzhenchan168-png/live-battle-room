@@ -7,10 +7,14 @@
 !/.coze
 !/.gitignore
 
-# 3. 允许 Next.js 项目文件
+# 3. 允许 Next.js 项目文件（根目录）
 !/package.json
-!/live-battle-room
+!/next.config.mjs
 !/next.config.js
 !/tailwind.config.js
 !/postcss.config.mjs
 !/tsconfig.json
+!/vercel.json
+!/.npmrc
+!/src/
+!/public/
