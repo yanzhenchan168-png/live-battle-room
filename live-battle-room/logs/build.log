@@ -1,0 +1,36 @@
+
+> live-battle-room@0.1.0 build /workspace/projects/live-battle-room
+> next build
+
+⚠ Invalid next.config.ts options detected: 
+⚠     Unrecognized key(s) in object: 'swcMinify'
+⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /pnpm-lock.yaml as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /workspace/projects/live-battle-room/pnpm-lock.yaml
+
+▲ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+- Experiments (use with caution):
+  · optimizePackageImports
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 8.4s
+  Running TypeScript ...
+Failed to compile.
+
+./next.config.ts:30:3
+Type error: Object literal may only specify known properties, and 'swcMinify' does not exist in type 'NextConfig'.
+
+[0m [90m 28 |[39m   
+ [90m 29 |[39m   [90m// SWC 压缩[39m
+[31m[1m>[22m[39m[90m 30 |[39m   swcMinify[33m:[39m [36mtrue[39m[33m,[39m
+ [90m    |[39m   [31m[1m^[22m[39m
+ [90m 31 |[39m   
+ [90m 32 |[39m   [90m// 输出模式[39m
+ [90m 33 |[39m   output[33m:[39m [32m'standalone'[39m[33m,[39m[0m
+Next.js build worker exited with code: 1 and signal: null
+ ELIFECYCLE  Command failed with exit code 1.

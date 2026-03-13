@@ -1,0 +1,16 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "pnpm build",
+  "installCommand": "pnpm install",
+  "devCommand": "pnpm dev",
+  "outputDirectory": ".next",
+  "regions": ["hkg1"],
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_COZE_BOT_ID": "@coze_bot_id",
+      "COZE_TOKEN": "@coze_token",
+      "DINGTALK_WEBHOOK_URL": "@dingtalk_webhook_url"
+    }
+  },
+  "installCommand": "pnpm install"
+}
