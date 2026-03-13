@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
           bot_id: botId,
           user_id: `user_${Date.now()}`,
           additional_messages: [{ role: 'user', content }],
-          stream: false,  // 临时改为非流式模式测试
+          stream: true,  // 使用流式模式
         }),
         signal: controller.signal,
       });
@@ -57,39 +57,88 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 处理非流式响应
-      const data = await res.json();
-      console.log('Coze API response:', JSON.stringify(data, null, 2));
+      // 处理流式响应
+      const reader = res.body?.getReader();
+      if (!reader) {
+        throw new Error('No response body');
+      }
 
-      if (data.code !== 0) {
-        console.error('Coze API returned error code:', data);
+      const decoder = new TextDecoder();
+      let fullContent = '';
+      let allChunks = '';
+      let eventCount = 0;
+      let eventType = '';
+      let eventStatus = '';
+
+      console.log('Starting to read stream...');
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          console.log('Stream reading completed, total events:', eventCount);
+          break;
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+        allChunks += chunk;
+        eventCount++;
+
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+
+            try {
+              const event = JSON.parse(data);
+              console.log(`Stream event ${eventCount}:`, JSON.stringify(event));
+
+              if (event.event === 'conversation.message.delta') {
+                if (event.data?.content) {
+                  fullContent += event.data.content;
+                  console.log(`Content added, total length: ${fullContent.length}`);
+                }
+              } else if (event.event === 'conversation.message.completed') {
+                eventType = 'completed';
+                eventStatus = event.data?.status || '';
+                console.log(`Message completed, status: ${eventStatus}`);
+              } else if (event.event === 'conversation.chat.completed') {
+                console.log(`Chat completed, status: ${event.data?.status}`);
+                if (event.data?.conversation_id) {
+                  console.log(`Conversation ID: ${event.data.conversation_id}`);
+                }
+              } else if (event.event === 'error') {
+                console.error('Stream error event:', event.data);
+                throw new Error(`Stream error: ${event.data?.msg || 'Unknown error'}`);
+              }
+            } catch (e) {
+              console.log('Failed to parse event data:', line);
+            }
+          }
+        }
+      }
+
+      console.log('Stream completed');
+      console.log('Total content length:', fullContent.length);
+      console.log('Total event count:', eventCount);
+      console.log('All chunks:', allChunks.substring(0, 500));
+
+      if (!fullContent) {
+        console.error('No content received from stream');
+        console.error('All chunks:', allChunks);
         return NextResponse.json(
-          { error: `Coze API error: ${data.code}`, message: data.msg || 'Unknown error' },
+          {
+            error: 'No content received',
+            details: 'Stream ended without content',
+            debug: {
+              eventCount,
+              chunks: allChunks.substring(0, 1000)
+            }
+          },
           { status: 500 }
         );
       }
-
-      // 检查响应中的消息
-      if (!data.data?.messages || data.data.messages.length === 0) {
-        console.error('No messages in response:', JSON.stringify(data, null, 2));
-        return NextResponse.json(
-          { error: 'No messages in response', details: 'Coze returned empty messages' },
-          { status: 500 }
-        );
-      }
-
-      // 找到助手的回复消息
-      const assistantMessage = data.data.messages.find((msg: any) => msg.role === 'assistant' && msg.type === 'answer');
-      if (!assistantMessage || !assistantMessage.content) {
-        console.error('No assistant message found:', JSON.stringify(data.data.messages, null, 2));
-        return NextResponse.json(
-          { error: 'No assistant message found', details: 'No assistant reply in response' },
-          { status: 500 }
-        );
-      }
-
-      const fullContent = assistantMessage.content;
-      console.log('Response content length:', fullContent.length);
 
       // 构造响应格式
       const response = {
@@ -102,11 +151,10 @@ export async function POST(request: NextRequest) {
 
       console.log('Returning response with content length:', fullContent.length);
       return NextResponse.json(response);
-      
+
     } catch (fetchError) {
       clearTimeout(timeout);
-      console.error('Fetch error:', fetchError);
-      
+
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
         console.error('Request timeout');
         return NextResponse.json(
@@ -114,21 +162,9 @@ export async function POST(request: NextRequest) {
           { status: 504 }
         );
       }
-      
-      console.error('Fetch error details:', {
-        name: fetchError instanceof Error ? fetchError.name : 'Unknown',
-        message: fetchError instanceof Error ? fetchError.message : String(fetchError),
-        stack: fetchError instanceof Error ? fetchError.stack : undefined
-      });
-      
-      return NextResponse.json(
-        { 
-          error: 'Fetch failed', 
-          message: fetchError instanceof Error ? fetchError.message : 'Unknown error',
-          stack: fetchError instanceof Error ? fetchError.stack : undefined
-        },
-        { status: 500 }
-      );
+
+      console.error('Fetch error:', fetchError);
+      throw fetchError;
     }
   } catch (error) {
     console.error('API route error:', error);
@@ -138,8 +174,8 @@ export async function POST(request: NextRequest) {
       stack: error instanceof Error ? error.stack : undefined
     });
     return NextResponse.json(
-      { 
-        error: 'Internal server error', 
+      {
+        error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined
       },
