@@ -22,11 +22,11 @@ export async function POST(request: NextRequest) {
       ? `${command} ${JSON.stringify(payload)}`
       : JSON.stringify(payload);
 
-    console.log('Calling Coze API with:', { botId, content: content.substring(0, 100) });
+    console.log('Calling Coze API with stream mode:', { botId, content: content.substring(0, 100) });
 
     // 创建 AbortController 用于超时控制
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000); // 30秒超时
+    const timeout = setTimeout(() => controller.abort(), 60000); // 60秒超时
 
     try {
       const res = await fetch('https://api.coze.cn/v3/chat', {
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
           bot_id: botId,
           user_id: `user_${Date.now()}`,
           additional_messages: [{ role: 'user', content }],
-          stream: false,
+          stream: true,  // 使用流式模式
         }),
         signal: controller.signal,
       });
@@ -57,16 +57,77 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const data = await res.json();
-      console.log('Coze API response data received');
-      return NextResponse.json(data);
+      // 处理流式响应
+      const reader = res.body?.getReader();
+      if (!reader) {
+        throw new Error('No response body');
+      }
+
+      const decoder = new TextDecoder();
+      let fullContent = '';
+      let eventType = '';
+      let eventStatus = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) break;
+        
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            
+            try {
+              const event = JSON.parse(data);
+              console.log('Stream event:', event);
+              
+              if (event.event === 'conversation.message.delta') {
+                if (event.data?.content) {
+                  fullContent += event.data.content;
+                }
+              } else if (event.event === 'conversation.message.completed') {
+                eventType = 'completed';
+                eventStatus = event.data?.status || '';
+              }
+            } catch (e) {
+              // 忽略解析错误
+            }
+          }
+        }
+      }
+
+      console.log('Stream completed, total content length:', fullContent.length);
+
+      if (!fullContent) {
+        console.error('No content received from stream');
+        return NextResponse.json(
+          { error: 'No content received', details: 'Stream ended without content' },
+          { status: 500 }
+        );
+      }
+
+      // 构造响应格式
+      const response = {
+        messages: [{
+          role: 'assistant',
+          content: fullContent,
+          type: 'answer',
+        }],
+      };
+
+      console.log('Returning response with content length:', fullContent.length);
+      return NextResponse.json(response);
+      
     } catch (fetchError) {
       clearTimeout(timeout);
       
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
         console.error('Request timeout');
         return NextResponse.json(
-          { error: 'Request timeout', message: 'Coze API request timed out after 30 seconds' },
+          { error: 'Request timeout', message: 'Coze API request timed out after 60 seconds' },
           { status: 504 }
         );
       }
