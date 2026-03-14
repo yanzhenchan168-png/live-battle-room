@@ -15,16 +15,23 @@ export class CozeLiveClient {
     try {
       console.log('sendCommand called:', { command, payload });
 
+      // 添加超时控制
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 90000); // 90秒超时
+
       const res = await fetch(this.apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ command, payload }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeout);
+
       if (!res.ok) {
-        const errorData = await res.json();
+        const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
         console.error('API route error:', errorData);
         throw new Error(errorData.error || `API error: ${res.status}`);
       }
@@ -35,7 +42,15 @@ export class CozeLiveClient {
       return this.parseResponse(data, command);
     } catch (error) {
       console.error('Coze API call failed:', error);
-      throw error;
+
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          throw new Error('请求超时，请稍后重试（API 响应时间过长）');
+        }
+        throw new Error(`请求失败: ${error.message}`);
+      }
+
+      throw new Error('未知错误，请稍后重试');
     }
   }
 
@@ -43,20 +58,32 @@ export class CozeLiveClient {
     console.log('Parsing response:', JSON.stringify(raw, null, 2));
 
     if (!raw) {
-      throw new Error('No response received');
+      throw new Error('未收到响应');
     }
 
     if (!raw.messages || raw.messages.length === 0) {
       console.error('No messages in response. Full response:', JSON.stringify(raw, null, 2));
-      throw new Error('No messages in response. Coze API returned empty messages.');
+      throw new Error('响应为空，请稍后重试');
     }
 
     const content = raw.messages[0].content;
-    console.log('Message content:', content);
+    console.log('Message content length:', content.length);
+    console.log('Message content preview:', content.substring(0, 200));
 
     try {
       if (command === '/roi_calc') {
-        return JSON.parse(content);
+        // 尝试解析 JSON
+        try {
+          const parsed = JSON.parse(content);
+          console.log('ROI calculation parsed successfully');
+          return parsed;
+        } catch (parseError) {
+          console.error('Failed to parse ROI response as JSON:', parseError);
+          console.error('Content that failed:', content);
+
+          // 如果 JSON 解析失败，尝试从文本中提取数据
+          return this.extractROIDataFromText(content);
+        }
       } else if (command === '/traffic_diag') {
         return this.parseTrafficResponse(content);
       } else if (command === '/script_gen') {
@@ -66,8 +93,74 @@ export class CozeLiveClient {
     } catch (error) {
       console.error('Failed to parse response:', error);
       console.error('Content that failed to parse:', content);
-      return { raw_content: content };
+      throw new Error(`解析响应失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
+  }
+
+  private extractROIDataFromText(content: string) {
+    console.log('Attempting to extract ROI data from text');
+
+    // 尝试从文本中提取关键数据
+    const lines = content.split('\n');
+    let target_roi = 0;
+    let break_even_roi = 0;
+    let real_net_rate_pct = 0;
+    let profit_per_show = 0;
+    let risk_level = '未知';
+    let risk_title = '';
+    let gap_text = '';
+
+    const cost_breakdown = {
+      ad: 0,
+      anchor: 0,
+      operation: 0,
+      rent: 0,
+      goods: 0,
+    };
+
+    for (const line of lines) {
+      const lowerLine = line.toLowerCase();
+
+      if (lowerLine.includes('目标roi') || lowerLine.includes('target roi')) {
+        const match = line.match(/[\d.]+/);
+        if (match) target_roi = parseFloat(match[0]);
+      }
+
+      if (lowerLine.includes('盈亏平衡') || lowerLine.includes('break even')) {
+        const match = line.match(/[\d.]+/);
+        if (match) break_even_roi = parseFloat(match[0]);
+      }
+
+      if (lowerLine.includes('净利率') || lowerLine.includes('net rate')) {
+        const match = line.match(/[\d.]+/);
+        if (match) real_net_rate_pct = parseFloat(match[0]);
+      }
+
+      if (lowerLine.includes('单场净利') || lowerLine.includes('profit per')) {
+        const match = line.match(/[\d.]+/);
+        if (match) profit_per_show = parseFloat(match[0]);
+      }
+
+      if (lowerLine.includes('风险') || lowerLine.includes('risk')) {
+        if (lowerLine.includes('健康')) risk_level = '健康';
+        else if (lowerLine.includes('可控')) risk_level = '可控';
+        else if (lowerLine.includes('高危')) risk_level = '高危';
+      }
+    }
+
+    return {
+      results: {
+        target_roi,
+        break_even_roi,
+        real_net_rate_pct,
+        profit_per_show,
+        risk_level,
+        risk_title: risk_level === '健康' ? '财务状况良好' : risk_level === '可控' ? '需要注意' : '高风险',
+        gap_text: '基于文本提取的数据，建议核实',
+        cost_breakdown,
+      },
+      report: content,
+    };
   }
 
   private parseTrafficResponse(content: string) {

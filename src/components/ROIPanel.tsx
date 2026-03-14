@@ -32,16 +32,26 @@ export default function ROIPanel() {
   const handleCalculate = async () => {
     setLoading(true);
     setPhase('roi_calculating');
-    
+
     try {
+      console.log('Starting ROI calculation with data:', formData);
+
       const response = await cozeClient.sendCommand('/roi_calc', formData);
+
+      console.log('ROI calculation response:', response);
+
       if (response.results && response.report) {
         setROIData(formData, response.results, response.report);
         setShowForm(false);
+        console.log('ROI calculation completed successfully');
+      } else {
+        console.error('Invalid response structure:', response);
+        alert('返回数据格式错误，请稍后重试');
       }
     } catch (error) {
       console.error('ROI calculation failed:', error);
-      alert('ROI计算失败，请检查网络连接和配置');
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      alert(`ROI计算失败：${errorMessage}\n\n请稍后重试，如果问题持续，请联系技术支持。`);
     } finally {
       setLoading(false);
     }

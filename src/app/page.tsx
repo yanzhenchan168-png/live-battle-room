@@ -12,7 +12,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="max-w-[1800px] mx-auto p-4 pb-24">
+      <div className="max-w-[1800px] mx-auto p-4 pb-32">
         <div className="mb-6 bg-white rounded-xl shadow-lg p-4">
           <div className="flex items-center justify-between">
             <div>
