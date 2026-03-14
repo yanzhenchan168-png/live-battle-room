@@ -111,11 +111,17 @@ export async function POST(request: NextRequest) {
                   fullContent += event.reasoning_content;
                 }
               } else if (currentEventType === 'conversation.message.completed') {
-                eventType = 'completed';
-                eventStatus = event.status || '';
+                // 只处理 type 为 answer 的消息，忽略 verbose（系统内部消息）
+                if (event.type === 'answer' && event.content) {
+                  fullContent += event.content;
+                  console.log('Found answer message, content length:', event.content.length);
+                } else {
+                  console.log('Skipping non-answer message:', event.type);
+                }
                 allMessages.push(event);
               } else if (currentEventType === 'conversation.chat.completed') {
-                console.log('Chat completed');
+                console.log('Chat completed, final content length:', fullContent.length);
+                break; // 对话完成后立即停止
               } else if (currentEventType === 'error') {
                 console.error('Stream error event:', event);
                 throw new Error(`Stream error: ${event.msg || 'Unknown error'}`);
