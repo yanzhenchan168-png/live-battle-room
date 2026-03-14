@@ -18,11 +18,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const content = command
-      ? `${command} ${JSON.stringify(payload)}`
-      : JSON.stringify(payload);
+    // 根据不同的命令添加系统提示词
+    let systemPrompt = '';
+    let content = '';
 
-    console.log('Calling Coze API with stream mode:', { botId, content: content.substring(0, 100) });
+    if (command === '/roi_calc') {
+      systemPrompt = '请直接进行 ROI 计算，不要询问任何问题。必须返回纯 JSON 格式，格式如下：{"results": {"target_roi": 数字, "break_even_roi": 数字, "real_net_rate_pct": 数字, "profit_per_show": 数字, "risk_level": "健康/可控/高危", "risk_title": "标题", "gap_text": "描述", "cost_breakdown": {"ad": 数字, "anchor": 数字, "operation": 数字, "rent": 数字, "goods": 数字}}, "report": "详细报告文本"}。不要包含任何对话式文本或额外说明。';
+      content = `${systemPrompt}\n\n计算参数：${JSON.stringify(payload)}`;
+    } else if (command === '/traffic_diag') {
+      systemPrompt = '请直接进行流量诊断，不要询问任何问题。返回诊断建议和策略。';
+      content = `${systemPrompt}\n\n诊断参数：${JSON.stringify(payload)}`;
+    } else if (command === '/script_gen') {
+      systemPrompt = '请直接生成直播话术，不要询问任何问题。返回完整的直播话术内容。';
+      content = `${systemPrompt}\n\n产品信息：${JSON.stringify(payload)}`;
+    } else {
+      content = JSON.stringify(payload);
+    }
+
+    console.log('Calling Coze API with stream mode:', { botId, command, contentLength: content.length });
 
     // 创建 AbortController 用于超时控制
     const controller = new AbortController();

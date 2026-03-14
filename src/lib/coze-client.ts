@@ -100,6 +100,25 @@ export class CozeLiveClient {
   private extractROIDataFromText(content: string) {
     console.log('Attempting to extract ROI data from text');
 
+    // 检查是否是询问信息而不是计算结果
+    const questionPatterns = [
+      /缺.*数/,
+      /缺少.*参数/,
+      /请.*提供/,
+      /需要.*信息/,
+      /是.*多少/,
+      /请.*填写/,
+      /宝，看到/,
+      /再问/,
+    ];
+
+    for (const pattern of questionPatterns) {
+      if (pattern.test(content)) {
+        console.log('Response appears to be a question, not a calculation result');
+        throw new Error('Bot 请求更多信息，但前端无法继续交互。请检查 Bot 配置或尝试更简单的输入。');
+      }
+    }
+
     // 尝试从文本中提取关键数据
     const lines = content.split('\n');
     let target_roi = 0;
@@ -146,6 +165,14 @@ export class CozeLiveClient {
         else if (lowerLine.includes('可控')) risk_level = '可控';
         else if (lowerLine.includes('高危')) risk_level = '高危';
       }
+    }
+
+    // 检查是否提取到了有效数据
+    const hasValidData = target_roi > 0 || break_even_roi > 0 || real_net_rate_pct > 0 || profit_per_show > 0;
+
+    if (!hasValidData) {
+      console.log('No valid ROI data could be extracted from text');
+      throw new Error('无法从 Bot 响应中提取有效的 ROI 计算结果。Bot 可能需要更多信息或配置有问题。\n\n原始响应：\n' + content.substring(0, 500) + '...');
     }
 
     return {
