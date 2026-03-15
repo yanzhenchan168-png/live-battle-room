@@ -28,6 +28,12 @@ export default function TrafficPanel() {
         roi_status: roiData?.results?.risk_level || '未知',
       };
 
+      console.log('Traffic diagnosis payload:', payload);
+      console.log('ROI data available:', !!roiData);
+      if (roiData) {
+        console.log('ROI month_receipt_gmv:', roiData.results.month_receipt_gmv);
+      }
+
       const response = await cozeClient.sendCommand('/traffic_diag', payload);
       setTrafficData(response);
     } catch (error) {
@@ -224,6 +230,7 @@ export default function TrafficPanel() {
             <div className="text-sm text-blue-800">
               <strong>📊 已关联ROI数据：</strong>
               <br />
+              目标GMV: ¥{roiData.results.month_receipt_gmv.toLocaleString()} | 
               目标ROI: {roiData.results.target_roi.toFixed(2)} | 
               风险等级: {roiData.results.risk_level}
             </div>
