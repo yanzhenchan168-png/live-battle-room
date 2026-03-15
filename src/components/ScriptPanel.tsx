@@ -17,10 +17,10 @@ const SELLING_FORMULAS = [
 export default function ScriptPanel() {
   const { roiData, trafficData, scriptData, setScriptData, setPhase } = useBattleStore();
   const [loading, setLoading] = useState(false);
-  const [productName, setProductName] = useState('');
-  const [sellingPoint, setSellingPoint] = useState('');
-  const [targetAudience, setTargetAudience] = useState('');
-  const [price, setPrice] = useState('');
+  const [productName, setProductName] = useState('法式茶歇裙');
+  const [sellingPoint, setSellingPoint] = useState('梨形身材遮胯，显瘦显高');
+  const [targetAudience, setTargetAudience] = useState('25-35岁职场女性');
+  const [price, setPrice] = useState('199');
   const [selectedFormula, setSelectedFormula] = useState(1);
   const [activeTab, setActiveTab] = useState<'full' | 'shaping' | 'pricing' | 'harvesting'>('full');
 
@@ -190,16 +190,12 @@ export default function ScriptPanel() {
             话术生成结果
           </h2>
           <button
-            onClick={() => {
-              setProductName('');
-              setSellingPoint('');
-              setTargetAudience('');
-              setPrice('');
-              setPhase('traffic_done');
-            }}
-            className="text-sm text-purple-600 hover:text-purple-800"
+            onClick={handleGenerate}
+            disabled={loading}
+            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg text-sm font-medium hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 shadow-md"
           >
-            重新生成
+            <Sparkles className="w-4 h-4" />
+            {loading ? '生成中...' : '重新生成话术'}
           </button>
         </div>
 
@@ -402,14 +398,16 @@ export default function ScriptPanel() {
         )}
       </div>
 
-      <button
-        onClick={handleGenerate}
-        disabled={loading || !productName || !sellingPoint}
-        className="mt-4 mb-2 w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 flex-shrink-0"
-      >
-        <Sparkles className="w-4 h-4" />
-        {loading ? '生成中...' : '生成话术'}
-      </button>
+      <div className="pt-2 pb-2 flex-shrink-0 sticky bottom-0 bg-gradient-to-br from-purple-50 to-pink-50 z-10">
+        <button
+          onClick={handleGenerate}
+          disabled={loading}
+          className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-lg font-bold text-lg hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105"
+        >
+          <Sparkles className="w-5 h-5" />
+          {loading ? '生成中...' : '✨ 生成话术'}
+        </button>
+      </div>
     </div>
   );
 }
