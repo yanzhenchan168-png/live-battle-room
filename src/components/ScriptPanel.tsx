@@ -297,14 +297,14 @@ export default function ScriptPanel() {
 
   return (
     <div className="h-full flex flex-col p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg border-2 border-purple-200">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
           <MessageSquare className="w-5 h-5" />
           话术生成
         </h2>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-4">
+      <div className="flex-1 overflow-y-auto space-y-4 pr-1">
         <div className="bg-white p-4 rounded-lg shadow-sm">
           <label className="block text-sm font-semibold text-gray-700 mb-2">
             产品名称
@@ -405,7 +405,7 @@ export default function ScriptPanel() {
       <button
         onClick={handleGenerate}
         disabled={loading || !productName || !sellingPoint}
-        className="mt-4 w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+        className="mt-4 mb-2 w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 flex-shrink-0"
       >
         <Sparkles className="w-4 h-4" />
         {loading ? '生成中...' : '生成话术'}
