@@ -53,7 +53,7 @@ export default function ScriptPanel() {
       const priceValue = parseInt(price) || 199;
       const formula = SELLING_FORMULAS.find(f => f.id === selectedFormula);
 
-      const fullScript = `## 直播话术模板
+      const full_script = `## 直播话术模板
 
 ### 产品信息
 - **产品名称**: ${productName}
@@ -135,7 +135,7 @@ export default function ScriptPanel() {
           selling_point: sellingPoint,
           target_audience: targetAudience || '通用',
         },
-        selected_formula,
+        selected_formula: selectedFormula,
         full_script,
         structure: {
           shaping: full_script.split('---')[1] || '',
