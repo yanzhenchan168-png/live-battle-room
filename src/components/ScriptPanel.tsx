@@ -128,6 +128,8 @@ export default function ScriptPanel() {
 6. 催单收割 - 快速成交
 `;
 
+      const sections = full_script.split('---');
+
       setScriptData({
         product: {
           name: productName,
@@ -138,9 +140,12 @@ export default function ScriptPanel() {
         selected_formula: selectedFormula,
         full_script,
         structure: {
-          shaping: full_script.split('---')[1] || '',
-          pricing: full_script.split('---')[2] || '',
-          harvesting: full_script.split('---')[3] || '',
+          // 塑品段：开场 + 产品介绍
+          shaping: (sections[1] || '') + (sections[2] || ''),
+          // 报价段：报价促单
+          pricing: sections[3] || '',
+          // 收割段：催单收割
+          harvesting: sections[4] || '',
         },
       });
 
