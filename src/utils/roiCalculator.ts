@@ -21,13 +21,19 @@ export interface ROIInputs {
 }
 
 export interface ROIResults {
-  target_roi: number;
-  break_even_roi: number;
   real_net_rate_pct: number;
+  target_roi: number;
+  break_even_roi: number | string;
   profit_per_show: number;
-  risk_level: '健康' | '可控' | '高危';
+  cost_per_show: number;
+  month_receipt_gmv: number;
+  month_profit: number;
+  risk_level: '高危' | '可控' | '健康';
+  risk_icon: string;
   risk_title: string;
   gap_text: string;
+  traffic_level: string;
+  suggestion: string;
   cost_breakdown: {
     ad: number;
     anchor: number;
@@ -137,7 +143,13 @@ export function calculateROI(inputs: ROIInputs): ROIReport {
     goods: goods_cost,
   };
 
-  // 14. 生成报告
+  // 14. 计算每场总成本
+  const cost_per_show = total_cost / anchor_shows;
+
+  // 15. 生成建议
+  const suggestion = getSuggestions(real_net_rate, risk_level);
+
+  // 16. 生成报告
   const report = generateReport({
     target_gmv,
     ad_budget,
@@ -151,13 +163,19 @@ export function calculateROI(inputs: ROIInputs): ROIReport {
 
   return {
     results: {
+      real_net_rate_pct: real_net_rate * 100,
       target_roi,
       break_even_roi,
-      real_net_rate_pct: real_net_rate * 100,
       profit_per_show: profit,
+      cost_per_show,
+      month_receipt_gmv: target_gmv,
+      month_profit: profit,
       risk_level,
+      risk_icon: risk_level === '健康' ? '✅' : risk_level === '可控' ? '⚠️' : '❌',
       risk_title,
       gap_text: `当前 ROI ${target_roi.toFixed(2)} vs 盈亏平衡 ${break_even_roi.toFixed(2)}`,
+      traffic_level: '20-50人', // 默认流量层级
+      suggestion,
       cost_breakdown,
     },
     report,
