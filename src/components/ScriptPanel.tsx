@@ -48,7 +48,103 @@ export default function ScriptPanel() {
       setScriptData(response);
     } catch (error) {
       console.error('Script generation failed:', error);
-      alert('话术生成失败，请检查网络连接和配置');
+
+      // 提供默认的话术模板
+      const priceValue = parseInt(price) || 199;
+      const formula = SELLING_FORMULAS.find(f => f.id === selectedFormula);
+
+      const fullScript = `## 直播话术模板
+
+### 产品信息
+- **产品名称**: ${productName}
+- **核心卖点**: ${sellingPoint}
+- **目标人群**: ${targetAudience || '通用'}
+- **价格**: ¥${priceValue}
+- **卖点公式**: ${formula?.name || '痛点+解决方案'}
+
+---
+
+### 🎯 开场（塑品段）
+
+【引入痛点】
+有没有姐妹也遇到过这样的困扰？${sellingPoint}的问题一直解决不了，试了很多方法都不行？
+
+【建立共鸣】
+我之前也是这样，直到我发现了这款${productName}...
+
+【产品亮相】
+今天给大家推荐的就是这款${productName}，${sellingPoint}
+
+---
+
+### 💡 产品介绍（详细展示）
+
+【核心卖点展示】
+给大家看看${sellingPoint}的实际效果...
+
+【使用场景】
+想象一下，当你使用这款${productName}的时候，${sellingPoint}就不再是问题了...
+
+【对比优势】
+市面上的产品要么太贵，要么效果不好，我们这款${productName}...
+
+---
+
+### 💰 报价促单（转化段）
+
+【价格锚定】
+平时这款产品在专柜都要卖到¥${Math.round(priceValue * 2)}，今天直播间专属价格...
+
+【限时优惠】
+今天直播间专属价格，只要¥${priceValue}，仅限今天，仅限直播间！
+
+【信任背书】
+已经有10万+姐妹买了，好评率99%，大家可以看评论区...
+
+【紧迫感营造】
+库存不多，只有最后50单，抢完就没有了！
+
+---
+
+### 🎁 催单收割（成交段）
+
+【再次强调】
+记住，这款${productName}，${sellingPoint}，今天只要¥${priceValue}
+
+【最后提醒】
+只有最后3分钟，库存只剩最后20单，没有抢到的姐妹不要后悔！
+
+【成交引导】
+想要的姐妹扣1，我给你们上链接！
+
+---
+
+### 💡 话术要点总结
+1. 痛点引入 - 建立共鸣
+2. 产品展示 - 详细讲解
+3. 对比优势 - 突出价值
+4. 限时优惠 - 制造紧迫感
+5. 信任背书 - 消除疑虑
+6. 催单收割 - 快速成交
+`;
+
+      setScriptData({
+        product: {
+          name: productName,
+          price: priceValue,
+          selling_point: sellingPoint,
+          target_audience: targetAudience || '通用',
+        },
+        selected_formula,
+        full_script,
+        structure: {
+          shaping: full_script.split('---')[1] || '',
+          pricing: full_script.split('---')[2] || '',
+          harvesting: full_script.split('---')[3] || '',
+        },
+      });
+
+      alert('话术生成完成（使用本地模板）');
     } finally {
       setLoading(false);
     }

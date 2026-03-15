@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useBattleStore } from '@/store/battleStore';
-import { cozeClient } from '@/lib/coze-client';
 import { ROIInputs } from '@/types/battle';
+import { calculateROI } from '@/utils/roiCalculator';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { AlertTriangle, CheckCircle, XCircle, Calculator, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -19,10 +19,10 @@ export default function ROIPanel() {
     selling_price: 199,
     return_rate: 30,
     platform_fee_rate: 5,
-    anchor_base: 500,
+    anchor_base: 5000,
     anchor_commission: 0,
     anchor_shows: 15,
-    operation_base: 300,
+    operation_base: 3000,
     operation_commission: 0,
     operation_shows: 15,
     rent_month: 3000,
@@ -34,19 +34,19 @@ export default function ROIPanel() {
     setPhase('roi_calculating');
 
     try {
-      console.log('Starting ROI calculation with data:', formData);
+      // 模拟计算延迟，让用户感觉在计算
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      const response = await cozeClient.sendCommand('/roi_calc', formData);
+      // 使用纯前端计算
+      const result = calculateROI(formData);
 
-      console.log('ROI calculation response:', response);
+      console.log('ROI calculation completed:', result);
 
-      if (response.results && response.report) {
-        setROIData(formData, response.results, response.report);
+      if (result.results && result.report) {
+        setROIData(formData, result.results, result.report);
         setShowForm(false);
+        setPhase('roi_done');
         console.log('ROI calculation completed successfully');
-      } else {
-        console.error('Invalid response structure:', response);
-        alert('返回数据格式错误，请稍后重试');
       }
     } catch (error) {
       console.error('ROI calculation failed:', error);
@@ -359,13 +359,15 @@ export default function ROIPanel() {
       </div>
 
       {showForm && (
-        <button
-          onClick={handleCalculate}
-          disabled={loading}
-          className="mt-4 w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-        >
-          {loading ? '计算中...' : '计算 ROI'}
-        </button>
+        <div className="mt-4 mb-8">
+          <button
+            onClick={handleCalculate}
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+          >
+            {loading ? '计算中...' : '计算 ROI'}
+          </button>
+        </div>
       )}
     </div>
   );
