@@ -35,7 +35,11 @@ export default function TrafficPanel() {
       }
 
       const response = await cozeClient.sendCommand('/traffic_diag', payload);
-      setTrafficData(response);
+      // 确保 online_count 使用用户输入的值
+      setTrafficData({
+        ...response,
+        online_count: parseInt(onlineCount), // 强制使用用户输入的值
+      });
     } catch (error) {
       console.error('Traffic diagnosis failed:', error);
 
