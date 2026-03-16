@@ -141,9 +141,9 @@ export default function ROIPanel() {
           </div>
         </div>
 
-        <div className="flex-1 bg-white rounded-lg shadow-sm p-4 mb-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">成本结构分析</h3>
-          <ResponsiveContainer width="100%" height={200}>
+        <div className="flex-1 bg-white rounded-lg shadow-sm p-3 mb-2">
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">成本结构分析</h3>
+          <ResponsiveContainer width="100%" height={150}>
             <PieChart>
               <Pie
                 data={getChartData()}
@@ -164,7 +164,7 @@ export default function ROIPanel() {
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm p-4">
+        <div className="bg-white rounded-lg shadow-sm p-3 mt-2">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold text-gray-700">智能诊断报告</h3>
             <button
@@ -177,7 +177,7 @@ export default function ROIPanel() {
               展开/收起
             </button>
           </div>
-          <div id="roi-report" className="text-xs text-gray-600 whitespace-pre-wrap line-clamp-3">
+          <div id="roi-report" className="text-xs text-gray-600 whitespace-pre-wrap line-clamp-3 max-h-24 overflow-y-auto">
             {roiData.report}
           </div>
         </div>

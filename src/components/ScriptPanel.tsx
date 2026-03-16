@@ -50,21 +50,11 @@ export default function ScriptPanel() {
       console.error('Script generation failed:', error);
 
       // 提供默认的话术模板
-      const priceValue = parseInt(price) || 199;
+      const priceValue = price || 199;
       const formula = SELLING_FORMULAS.find(f => f.id === selectedFormula);
 
-      const full_script = `## 直播话术模板
-
-### 产品信息
-- **产品名称**: ${productName}
-- **核心卖点**: ${sellingPoint}
-- **目标人群**: ${targetAudience || '通用'}
-- **价格**: ¥${priceValue}
-- **卖点公式**: ${formula?.name || '痛点+解决方案'}
-
----
-
-### 🎯 开场（塑品段）
+      // ✅ 修复：直接构建各段内容，避免split导致的错位
+      const shapingContent = `## 🎯 塑品段（开场建立信任）
 
 【引入痛点】
 有没有姐妹也遇到过这样的困扰？${sellingPoint}的问题一直解决不了，试了很多方法都不行？
@@ -75,10 +65,6 @@ export default function ScriptPanel() {
 【产品亮相】
 今天给大家推荐的就是这款${productName}，${sellingPoint}
 
----
-
-### 💡 产品介绍（详细展示）
-
 【核心卖点展示】
 给大家看看${sellingPoint}的实际效果...
 
@@ -87,10 +73,9 @@ export default function ScriptPanel() {
 
 【对比优势】
 市面上的产品要么太贵，要么效果不好，我们这款${productName}...
+`;
 
----
-
-### 💰 报价促单（转化段）
+      const pricingContent = `## 💰 报价段（价值锚定）
 
 【价格锚定】
 平时这款产品在专柜都要卖到¥${Math.round(priceValue * 2)}，今天直播间专属价格...
@@ -103,10 +88,9 @@ export default function ScriptPanel() {
 
 【紧迫感营造】
 库存不多，只有最后50单，抢完就没有了！
+`;
 
----
-
-### 🎁 催单收割（成交段）
+      const harvestingContent = `## 🎁 收割段（促成转化）
 
 【再次强调】
 记住，这款${productName}，${sellingPoint}，今天只要¥${priceValue}
@@ -116,6 +100,23 @@ export default function ScriptPanel() {
 
 【成交引导】
 想要的姐妹扣1，我给你们上链接！
+`;
+
+      const full_script = `## 直播话术模板
+
+### 产品信息
+- **产品名称**: ${productName}
+- **核心卖点**: ${sellingPoint}
+- **目标人群**: ${targetAudience || '通用'}
+- **价格**: ¥${priceValue}
+- **卖点公式**: ${formula?.name || '痛点+解决方案'}
+
+---
+${shapingContent}
+---
+${pricingContent}
+---
+${harvestingContent}
 
 ---
 
@@ -128,8 +129,6 @@ export default function ScriptPanel() {
 6. 催单收割 - 快速成交
 `;
 
-      const sections = full_script.split('---');
-
       setScriptData({
         product: {
           name: productName,
@@ -140,12 +139,10 @@ export default function ScriptPanel() {
         selected_formula: selectedFormula,
         full_script,
         structure: {
-          // 塑品段：开场 + 产品介绍
-          shaping: (sections[1] || '') + (sections[2] || ''),
-          // 报价段：报价促单
-          pricing: sections[3] || '',
-          // 收割段：催单收割
-          harvesting: sections[4] || '',
+          // ✅ 修复：直接赋值，不用split
+          shaping: shapingContent,
+          pricing: pricingContent,
+          harvesting: harvestingContent,
         },
       });
 
@@ -347,7 +344,10 @@ export default function ScriptPanel() {
           <input
             type="number"
             value={price}
-            onChange={(e) => setPrice(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setPrice(val === '' ? 0 : parseInt(val));
+            }}
             placeholder="199"
             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
           />
