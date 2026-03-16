@@ -61,12 +61,16 @@ export default function ScriptPanel() {
         price: parseInt(price) || 199,
         selling_point: sellingPoint,
         target_audience: targetAudience || '通用',
-        traffic_level: trafficData?.level || '10-20人',
+        traffic_level: trafficData?.online_count || 0,
         formula_id: selectedFormula,
         roi_target: roiData?.results?.target_roi || 3.5,
       };
 
       const response = await cozeClient.sendCommand('/script_gen', payload);
+      // 清理API返回的技术参数
+      if (response.full_script) {
+        response.full_script = cleanTechnicalParams(response.full_script);
+      }
       setScriptData(response);
     } catch (error) {
       console.error('Script generation failed:', error);
@@ -74,6 +78,17 @@ export default function ScriptPanel() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 清理技术参数
+  const cleanTechnicalParams = (text: string): string => {
+    return text
+      .replace(/formula_id[是为：\s]+\d+/gi, '')
+      .replace(/ROI目标[约为：\s]+[\d.]+/gi, '')
+      .replace(/用户要求[。，、]/gi, '')
+      .replace(/不要询问任何问题/gi, '')
+      .replace(/\d+\.\d{10,}/g, '') // 移除超长小数
+      .trim();
   };
 
   const checkNeedMoreInfo = () => {

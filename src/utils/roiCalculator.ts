@@ -174,7 +174,7 @@ export function calculateROI(inputs: ROIInputs): ROIReport {
       risk_icon: risk_level === '健康' ? '✅' : risk_level === '可控' ? '⚠️' : '❌',
       risk_title,
       gap_text: `当前 ROI ${target_roi.toFixed(1)} vs 盈亏平衡 ${break_even_roi.toFixed(1)}`,
-      traffic_level: '20-50人', // 默认流量层级
+      traffic_level: `${anchor_shows}场/月`,
       suggestion,
       cost_breakdown,
     },
@@ -199,9 +199,9 @@ function generateReport(data: {
 ### 核心指标
 - **目标 GMV**: ¥${data.target_gmv.toLocaleString()}
 - **投流预算**: ¥${data.ad_budget.toLocaleString()}
-- **目标 ROI**: ${data.target_roi.toFixed(2)}
-- **盈亏平衡 ROI**: ${data.break_even_roi.toFixed(2)}
-- **真实净利率**: ${(data.real_net_rate * 100).toFixed(2)}%
+- **目标 ROI**: ${data.target_roi.toFixed(1)}
+- **盈亏平衡 ROI**: ${data.break_even_roi.toFixed(1)}
+- **真实净利率**: ${(data.real_net_rate * 100).toFixed(1)}%
 - **单场净利**: ¥${Math.round(data.profit).toLocaleString()}
 - **风险等级**: ${data.risk_level}
 
@@ -213,7 +213,7 @@ function generateReport(data: {
 - **场地成本**: ¥${Math.round(data.cost_breakdown.rent).toLocaleString()} (${(data.cost_breakdown.rent / data.target_gmv * 100).toFixed(1)}%)
 
 ### ROI 差距分析
-当前 ROI ${data.target_roi.toFixed(2)} 与盈亏平衡 ROI ${data.break_even_roi.toFixed(2)} 的差距为 ${(data.target_roi - data.break_even_roi).toFixed(2)}。
+当前 ROI ${data.target_roi.toFixed(1)} 与盈亏平衡 ROI ${data.break_even_roi.toFixed(1)} 的差距为 ${(data.target_roi - data.break_even_roi).toFixed(1)}。
 
 ${data.target_roi >= data.break_even_roi ? '✅ 当前 ROI 已超过盈亏平衡点，项目盈利。' : '⚠️ 当前 ROI 低于盈亏平衡点，项目亏损。'}
 
@@ -221,8 +221,7 @@ ${data.target_roi >= data.break_even_roi ? '✅ 当前 ROI 已超过盈亏平衡
 ${suggestions}
 
 ### 风险提示
-- 当前净利率 ${(data.real_net_rate * 100).toFixed(2)}%，${data.real_net_rate >= 0.15 ? '属于健康水平，可以适度扩大规模。' : data.real_net_rate >= 0.05 ? '属于可控水平，需要优化成本结构。' : '风险较高，建议暂停扩张，优化投放策略。'}
-- 建议重点关注：${data.risk_level === '健康' ? '转化率提升和用户留存' : data.risk_level === '可控' ? '人力成本和运营效率' : '投放策略和产品结构优化'}
+当前净利率 ${(data.real_net_rate * 100).toFixed(1)}%，${data.real_net_rate >= 0.15 ? '属于健康水平，可以适度扩大规模。' : data.real_net_rate >= 0.05 ? '属于可控水平，需要优化成本结构。' : '风险较高，建议暂停扩张，优化投放策略。'}
 `;
 }
 
