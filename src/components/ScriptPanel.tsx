@@ -50,7 +50,7 @@ export default function ScriptPanel() {
       console.error('Script generation failed:', error);
 
       // 提供默认的话术模板
-      const priceValue = price || 199;
+      const priceValue = parseInt(price) || 199;
       const formula = SELLING_FORMULAS.find(f => f.id === selectedFormula);
 
       // ✅ 修复：直接构建各段内容，避免split导致的错位
@@ -344,10 +344,7 @@ ${harvestingContent}
           <input
             type="number"
             value={price}
-            onChange={(e) => {
-              const val = e.target.value;
-              setPrice(val === '' ? 0 : parseInt(val));
-            }}
+            onChange={(e) => setPrice(e.target.value)}
             placeholder="199"
             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
           />
