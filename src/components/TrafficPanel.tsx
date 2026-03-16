@@ -47,24 +47,24 @@ export default function TrafficPanel() {
 
       if (count < 20) {
         level = '点对点成交';
-        strategy = '一对一精细化运营，强化互动和信任建立';
-        key_actions.push('主动问候每一个进入直播间的观众', '建立私域联系', '详细讲解产品优势', '提供专属优惠');
+        strategy = '当前流量较低，我建议你采用一对一精细化运营模式。主动与每位观众建立深度连接，通过详细的产品讲解和专属优惠来建立信任，逐步实现转化。';
+        key_actions.push('主动问候每一个进入直播间的观众', '建立私域联系（引导加微信/粉丝群）', '详细讲解产品优势和使用场景', '提供专属优惠券或赠品');
       } else if (count < 50) {
         level = '平播模式';
-        strategy = '保持稳定节奏，平衡讲解和互动';
-        key_actions.push('维持稳定的讲解节奏', '定期互动提升留存', '引导点赞关注', '适时进行产品推荐');
+        strategy = '流量处于稳定水平，建议保持稳定的直播节奏。在讲解产品的同时，定期与观众互动提升留存率，适时进行产品推荐。';
+        key_actions.push('维持稳定的讲解节奏（每10-15分钟一个循环）', '定期互动提升留存（提问、抽奖）', '引导点赞关注直播间', '在流量高峰时进行产品推荐');
       } else if (count < 80) {
         level = '半批量转化';
-        strategy = '加强用户留存，提升转化效率';
-        key_actions.push('增加互动频次', '使用痛点话术', '限时限量促单', '建立信任背书');
+        strategy = '流量表现不错，建议加强用户留存和互动。使用痛点话术引发共鸣，通过限时限量促单来提升转化效率。';
+        key_actions.push('增加互动频次（每5分钟一次互动）', '使用痛点话术引发共鸣', '设置限时限量优惠', '建立信任背书（好评、销量展示）');
       } else if (count < 260) {
         level = '憋单话术';
-        strategy = '批量获取流量，快速转化成交';
-        key_actions.push('憋单制造紧迫感', '批量话术输出', '快速促单', '控制节奏');
+        strategy = '流量较好，建议采用憋单话术批量获取流量。通过制造紧迫感快速转化，控制好节奏实现批量成交。';
+        key_actions.push('憋单制造紧迫感（库存有限、限时优惠）', '批量话术输出（快速过品）', '快速促单（引导扣屏、上链接）', '控制节奏（憋单-放单-再憋单）');
       } else {
         level = '高流量爆发';
-        strategy = '最大化流量价值，提升整体转化率';
-        key_actions.push('全屏展示核心产品', '使用高转化话术', '限时秒杀', '批量成交');
+        strategy = '流量非常好！建议最大化流量价值，全屏展示核心产品，使用高转化话术配合限时秒杀，实现批量快速成交。';
+        key_actions.push('全屏展示核心产品（主播试穿/演示）', '使用高转化话术模板', '设置限时秒杀活动', '批量成交（引导大量用户下单）');
       }
 
       setTrafficData({
@@ -111,6 +111,29 @@ export default function TrafficPanel() {
         </div>
 
         <div className="flex-1 space-y-4">
+          {/* 添加 GMV 显示 */}
+          {roiData && (
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-gray-500">关联GMV目标</div>
+                  <div className="text-xl font-bold text-green-600">
+                    ¥{roiData.results.month_receipt_gmv?.toLocaleString() || 0}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500">ROI状态</div>
+                  <div className={`text-sm font-semibold ${
+                    roiData.results.risk_level === '健康' ? 'text-green-600' :
+                    roiData.results.risk_level === '可控' ? 'text-yellow-600' : 'text-red-600'
+                  }`}>
+                    {roiData.results.risk_level}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white p-4 rounded-lg shadow-sm">
             <div className="flex items-center gap-3 mb-3">
               <Users className="w-8 h-8 text-blue-600" />
@@ -133,7 +156,7 @@ export default function TrafficPanel() {
               <Target className="w-4 h-4" />
               匹配策略
             </h3>
-            <div className="text-base font-medium text-blue-600">{trafficData.strategy}</div>
+            <div className="text-base text-gray-700 leading-relaxed">{trafficData.strategy}</div>
           </div>
 
           <div className="bg-white p-4 rounded-lg shadow-sm flex-1">

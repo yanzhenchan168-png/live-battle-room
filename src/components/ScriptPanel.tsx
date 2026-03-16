@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useBattleStore } from '@/store/battleStore';
 import { cozeClient } from '@/lib/coze-client';
-import { MessageSquare, Sparkles, Check, Copy } from 'lucide-react';
+import { MessageSquare, Sparkles, Check, Copy, Send } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 const SELLING_FORMULAS = [
@@ -14,6 +14,11 @@ const SELLING_FORMULAS = [
   { id: 5, name: '场景代入', preview: '想象一下，当你...' },
 ];
 
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export default function ScriptPanel() {
   const { roiData, trafficData, scriptData, setScriptData, setPhase } = useBattleStore();
   const [loading, setLoading] = useState(false);
@@ -23,6 +28,9 @@ export default function ScriptPanel() {
   const [price, setPrice] = useState('199');
   const [selectedFormula, setSelectedFormula] = useState(1);
   const [activeTab, setActiveTab] = useState<'full' | 'shaping' | 'pricing' | 'harvesting'>('full');
+  const [showChat, setShowChat] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [userInput, setUserInput] = useState('');
 
   const handleGenerate = async () => {
     if (!productName || !sellingPoint) {
@@ -32,6 +40,20 @@ export default function ScriptPanel() {
 
     setLoading(true);
     setPhase('script_generating');
+
+    // 根据已有信息判断是否需要更多信息
+    const needMoreInfo = checkNeedMoreInfo();
+
+    if (needMoreInfo) {
+      // 开启对话模式，询问用户更多信息
+      setShowChat(true);
+      const question = generateQuestion();
+      setMessages([
+        { role: 'assistant', content: question }
+      ]);
+      setLoading(false);
+      return;
+    }
 
     try {
       const payload = {
@@ -48,13 +70,66 @@ export default function ScriptPanel() {
       setScriptData(response);
     } catch (error) {
       console.error('Script generation failed:', error);
+      generateLocalScript();
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      // 提供默认的话术模板
-      const priceValue = parseInt(price) || 199;
-      const formula = SELLING_FORMULAS.find(f => f.id === selectedFormula);
+  const checkNeedMoreInfo = () => {
+    // 如果信息不够充分，需要询问更多信息
+    // 例如：没有填写目标人群、没有流量数据、没有ROI数据等
+    if (!targetAudience || targetAudience === '通用' || targetAudience === '') {
+      return true;
+    }
+    if (!trafficData) {
+      return true;
+    }
+    return false;
+  };
+
+  const generateQuestion = () => {
+    if (!targetAudience || targetAudience === '通用' || targetAudience === '') {
+      return `我注意到你还没有详细描述目标人群的特征。\n\n为了生成更精准的话术，请告诉我：\n\n1. 你的目标客户主要是哪些年龄段？\n2. 她们的消费习惯和痛点是什么？\n3. 她们通常在什么场景下会使用这个产品？`;
+    }
+    if (!trafficData) {
+      return `我注意到你还没有完成流量诊断。\n\n话术策略需要根据流量层级来调整，不同流量对应不同的话术节奏和促单方式。\n\n你希望：\n1. 先去完成流量诊断\n2. 或者告诉我你的预估在线人数，我来帮你判断`;
+    }
+    return `为了生成更优质的话术，请告诉我更多产品信息，比如：\n\n1. 产品的主要材质或成分\n2. 与竞品相比的优势\n3. 用户反馈最多的好评点`;
+  };
+
+  const handleSendMessage = async () => {
+    if (!userInput.trim()) return;
+
+    const newMessages = [...messages, { role: 'user' as const, content: userInput }];
+    setMessages(newMessages);
+    setUserInput('');
+    setLoading(true);
+
+    try {
+      // 这里可以调用API进行多轮对话
+      // 暂时使用本地逻辑
+      const response = `好的，我收到了你的信息。基于你提供的内容，我来为你生成更精准的话术方案。`;
+      setMessages([...newMessages, { role: 'assistant', content: response }]);
+      
+      // 延迟后生成话术
+      setTimeout(() => {
+        generateLocalScript();
+        setShowChat(false);
+      }, 1500);
+    } catch (error) {
+      console.error('Chat failed:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateLocalScript = () => {
+    const priceValue = parseInt(price) || 199;
+    const formula = SELLING_FORMULAS.find(f => f.id === selectedFormula);
 
       // ✅ 修复：直接构建各段内容，避免split导致的错位
-      const shapingContent = `## 🎯 塑品段（开场建立信任）
+    const shapingContent = `## 🎯 塑品段（开场建立信任）
 
 【引入痛点】
 有没有姐妹也遇到过这样的困扰？${sellingPoint}的问题一直解决不了，试了很多方法都不行？
@@ -75,7 +150,7 @@ export default function ScriptPanel() {
 市面上的产品要么太贵，要么效果不好，我们这款${productName}...
 `;
 
-      const pricingContent = `## 💰 报价段（价值锚定）
+    const pricingContent = `## 💰 报价段（价值锚定）
 
 【价格锚定】
 平时这款产品在专柜都要卖到¥${Math.round(priceValue * 2)}，今天直播间专属价格...
@@ -90,7 +165,7 @@ export default function ScriptPanel() {
 库存不多，只有最后50单，抢完就没有了！
 `;
 
-      const harvestingContent = `## 🎁 收割段（促成转化）
+    const harvestingContent = `## 🎁 收割段（促成转化）
 
 【再次强调】
 记住，这款${productName}，${sellingPoint}，今天只要¥${priceValue}
@@ -102,7 +177,7 @@ export default function ScriptPanel() {
 想要的姐妹扣1，我给你们上链接！
 `;
 
-      const full_script = `## 直播话术模板
+    const full_script = `## 直播话术模板
 
 ### 产品信息
 - **产品名称**: ${productName}
@@ -129,27 +204,22 @@ ${harvestingContent}
 6. 催单收割 - 快速成交
 `;
 
-      setScriptData({
-        product: {
-          name: productName,
-          price: priceValue,
-          selling_point: sellingPoint,
-          target_audience: targetAudience || '通用',
-        },
-        selected_formula: selectedFormula,
-        full_script,
-        structure: {
-          // ✅ 修复：直接赋值，不用split
-          shaping: shapingContent,
-          pricing: pricingContent,
-          harvesting: harvestingContent,
-        },
-      });
-
-      alert('话术生成完成（使用本地模板）');
-    } finally {
-      setLoading(false);
-    }
+    setScriptData({
+      product: {
+        name: productName,
+        price: priceValue,
+        selling_point: sellingPoint,
+        target_audience: targetAudience || '通用',
+      },
+      selected_formula: selectedFormula,
+      full_script,
+      structure: {
+        shaping: shapingContent,
+        pricing: pricingContent,
+        harvesting: harvestingContent,
+      },
+    });
+    setPhase('ready');
   };
 
   const handleCopy = async (text: string) => {
@@ -396,14 +466,61 @@ ${harvestingContent}
       </div>
 
       <div className="pt-2 pb-2 flex-shrink-0 sticky bottom-0 bg-gradient-to-br from-purple-50 to-pink-50 z-10">
-        <button
-          onClick={handleGenerate}
-          disabled={loading}
-          className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-lg font-bold text-lg hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105"
-        >
-          <Sparkles className="w-5 h-5" />
-          {loading ? '生成中...' : '✨ 生成话术'}
-        </button>
+        {showChat ? (
+          // 对话模式界面
+          <div className="bg-white rounded-lg shadow-sm p-4">
+            <div className="text-sm text-gray-600 mb-3 font-medium">💬 需要更多信息来生成优质话术</div>
+            <div className="max-h-40 overflow-y-auto space-y-2 mb-3">
+              {messages.map((msg, idx) => (
+                <div key={idx} className={`text-sm ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
+                  <div className={`inline-block px-3 py-2 rounded-lg ${
+                    msg.role === 'user' 
+                      ? 'bg-purple-100 text-purple-800' 
+                      : 'bg-gray-100 text-gray-700'
+                  }`}>
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                placeholder="输入你的回答..."
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={loading || !userInput.trim()}
+                className="px-4 py-2 bg-purple-600 text-white rounded-md text-sm font-medium"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+            <button
+              onClick={() => {
+                setShowChat(false);
+                generateLocalScript();
+              }}
+              className="mt-2 w-full text-sm text-gray-500 hover:text-gray-700"
+            >
+              跳过，直接生成基础话术
+            </button>
+          </div>
+        ) : (
+          // 原有的生成按钮
+          <button
+            onClick={handleGenerate}
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-lg font-bold text-lg hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105"
+          >
+            <Sparkles className="w-5 h-5" />
+            {loading ? '生成中...' : '✨ 生成话术'}
+          </button>
+        )}
       </div>
     </div>
   );
