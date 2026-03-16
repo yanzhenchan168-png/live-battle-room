@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useBattleStore } from '@/store/battleStore';
 import { cozeClient } from '@/lib/coze-client';
-import { MessageSquare, Sparkles, Check, Copy, Send } from 'lucide-react';
+import { MessageSquare, Sparkles, Check, Copy, Send, RefreshCw, Wand2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { generateCreativeScript, adjustByTraffic, type ScriptInput } from '@/utils/creativeScriptGenerator';
 
 const SELLING_FORMULAS = [
   { id: 1, name: '痛点+解决方案', preview: '你是不是也遇到...？今天给你推荐...' },
@@ -150,77 +151,24 @@ export default function ScriptPanel() {
 
   const generateLocalScript = () => {
     const priceValue = parseInt(price) || 199;
-    const formula = SELLING_FORMULAS.find(f => f.id === selectedFormula);
-
-      // 塑品段：解决"为什么买"的问题
-    const shapingContent = `## 🎯 塑品段（建立购买需求）
-
-### 核心卖点1：${sellingPoint.split('，')[0] || sellingPoint}
-【痛点引入】
-有没有姐妹也遇到过这样的困扰？${sellingPoint}的问题一直解决不了，试了很多方法都不行？
-
-【产品亮相】
-今天给大家推荐的就是这款${productName}，它完美解决了这个问题！
-
-【使用场景】
-想象一下，当你使用这款${productName}的时候，${sellingPoint}就不再是问题了...
-
-${sellingPoint.split('，').length > 1 ? `
-### 核心卖点2：${sellingPoint.split('，')[1]}
-【卖点展示】
-而且这款${productName}还有一个很大的优势：${sellingPoint.split('，')[1]}
-
-【实际效果】
-给大家看看实际效果...
-` : ''}
-`;
-
-    // 报价段：解决"为什么找我买"的问题
-    const pricingContent = `## 💰 报价段（建立价值认知）
-
-【市场对比】
-市面上的同类产品，要么价格太贵，要么质量不好。我们这款${productName}：
-
-• 同品质产品市场价：¥${Math.round(priceValue * 2)}-${Math.round(priceValue * 2.5)}
-• 今天直播间专属价：¥${priceValue}
-
-【品质保障】
-✓ 正品保障，假一赔十
-✓ 7天无理由退换
-✓ 顺丰包邮，48小时发货
-
-【性价比优势】
-同样的品质，我们价格更低；同样的价格，我们品质更好！
-`;
-
-    // 收割段：解决"为什么此时此刻买"的问题
-    const harvestingContent = `## 🎁 收割段（促成立即购买）
-
-【限时优惠】
-⏰ 限时优惠！今天直播间专属价格，只要¥${priceValue}！
-仅限今天，仅限直播间！
-
-【限量提醒】
-📦 库存不多！只有最后50单，抢完就没有了！
-想要的姐妹赶紧下单！
-
-【信任背书】
-✅ 已有10万+姐妹购买
-✅ 好评率99%
-✅ 复购率高达85%
-
-【成交引导】
-🔥 只有最后3分钟！
-想要的姐妹扣1，我给你们上链接！
-`;
-
-    const full_script = `${shapingContent}
----
-${pricingContent}
----
-${harvestingContent}
-`;
-
+    
+    // 使用创意话术生成器
+    const input: ScriptInput = {
+      productName: productName,
+      price: priceValue,
+      sellingPoint: sellingPoint,
+      targetAudience: targetAudience || '通用',
+      trafficLevel: trafficData?.online_count || 0,
+      formulaId: selectedFormula,
+    };
+    
+    let script = generateCreativeScript(input);
+    
+    // 根据流量等级调整话术
+    if (trafficData?.online_count) {
+      script = adjustByTraffic(script, trafficData.online_count);
+    }
+    
     setScriptData({
       product: {
         name: productName,
@@ -229,14 +177,21 @@ ${harvestingContent}
         target_audience: targetAudience || '通用',
       },
       selected_formula: selectedFormula,
-      full_script,
-      structure: {
-        shaping: shapingContent,
-        pricing: pricingContent,
-        harvesting: harvestingContent,
-      },
+      full_script: script.full_script,
+      structure: script.structure,
+      style: script.style,
     });
     setPhase('ready');
+  };
+
+  // 换一种风格重新生成
+  const handleRegenerate = () => {
+    // 直接重新生成，不需要清空数据
+    setLoading(true);
+    setTimeout(() => {
+      generateLocalScript();
+      setLoading(false);
+    }, 300);
   };
 
   const handleCopy = async (text: string) => {
@@ -269,18 +224,35 @@ ${harvestingContent}
     return (
       <div className="h-full flex flex-col p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg border-2 border-purple-200">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-            <MessageSquare className="w-5 h-5" />
-            话术生成结果
-          </h2>
-          <button
-            onClick={handleGenerate}
-            disabled={loading}
-            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg text-sm font-medium hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 shadow-md"
-          >
-            <Sparkles className="w-4 h-4" />
-            {loading ? '生成中...' : '重新生成话术'}
-          </button>
+          <div>
+            <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+              <MessageSquare className="w-5 h-5" />
+              话术生成结果
+            </h2>
+            {scriptData.style && (
+              <p className="text-xs text-gray-500 mt-1">
+                当前风格：<span className="font-medium text-purple-600">{scriptData.style.split('-').join(' + ')}</span>
+              </p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleRegenerate}
+              disabled={loading}
+              className="px-4 py-2 bg-white border-2 border-purple-300 text-purple-600 rounded-lg text-sm font-medium hover:bg-purple-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+            >
+              <Wand2 className="w-4 h-4" />
+              换一种风格
+            </button>
+            <button
+              onClick={handleGenerate}
+              disabled={loading}
+              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg text-sm font-medium hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 shadow-md"
+            >
+              <Sparkles className="w-4 h-4" />
+              重新输入
+            </button>
+          </div>
         </div>
 
         <div className="bg-white p-3 rounded-lg shadow-sm mb-3">

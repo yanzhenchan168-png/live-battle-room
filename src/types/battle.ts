@@ -61,6 +61,7 @@ export interface ScriptData {
     pricing: string;
     harvesting: string;
   };
+  style?: string; // 话术风格标识
 }
 
 export interface BattleState {
