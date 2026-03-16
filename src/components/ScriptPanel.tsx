@@ -177,31 +177,11 @@ export default function ScriptPanel() {
 想要的姐妹扣1，我给你们上链接！
 `;
 
-    const full_script = `## 直播话术模板
-
-### 产品信息
-- **产品名称**: ${productName}
-- **核心卖点**: ${sellingPoint}
-- **目标人群**: ${targetAudience || '通用'}
-- **价格**: ¥${priceValue}
-- **卖点公式**: ${formula?.name || '痛点+解决方案'}
-
----
-${shapingContent}
+    const full_script = `${shapingContent}
 ---
 ${pricingContent}
 ---
 ${harvestingContent}
-
----
-
-### 💡 话术要点总结
-1. 痛点引入 - 建立共鸣
-2. 产品展示 - 详细讲解
-3. 对比优势 - 突出价值
-4. 限时优惠 - 制造紧迫感
-5. 信任背书 - 消除疑虑
-6. 催单收割 - 快速成交
 `;
 
     setScriptData({

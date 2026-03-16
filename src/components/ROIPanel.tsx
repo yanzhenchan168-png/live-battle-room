@@ -117,20 +117,20 @@ export default function ROIPanel() {
         <div className="grid grid-cols-2 gap-3 mb-4">
           <div className="bg-white p-3 rounded-lg shadow-sm">
             <div className="text-xs text-gray-500 mb-1">目标ROI</div>
-            <div className="text-xl font-bold text-blue-600">{roiData.results.target_roi.toFixed(2)}</div>
+            <div className="text-xl font-bold text-blue-600">{roiData.results.target_roi.toFixed(1)}</div>
           </div>
           <div className="bg-white p-3 rounded-lg shadow-sm">
             <div className="text-xs text-gray-500 mb-1">盈亏平衡ROI</div>
             <div className="text-xl font-bold text-purple-600">
               {typeof roiData.results.break_even_roi === 'number'
-                ? roiData.results.break_even_roi.toFixed(2)
+                ? roiData.results.break_even_roi.toFixed(1)
                 : roiData.results.break_even_roi}
             </div>
           </div>
           <div className="bg-white p-3 rounded-lg shadow-sm">
             <div className="text-xs text-gray-500 mb-1">真实净利率</div>
             <div className="text-xl font-bold text-green-600">
-              {roiData.results.real_net_rate_pct.toFixed(2)}%
+              {roiData.results.real_net_rate_pct.toFixed(1)}%
             </div>
           </div>
           <div className="bg-white p-3 rounded-lg shadow-sm">
@@ -141,7 +141,7 @@ export default function ROIPanel() {
           </div>
         </div>
 
-        <div className="flex-1 bg-white rounded-lg shadow-sm p-3 mb-2">
+        <div className="bg-white rounded-lg shadow-sm p-3 mb-3">
           <h3 className="text-sm font-semibold text-gray-700 mb-2">成本结构分析</h3>
           <ResponsiveContainer width="100%" height={150}>
             <PieChart>
@@ -164,20 +164,11 @@ export default function ROIPanel() {
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm p-3 mt-2">
+        <div className="bg-white rounded-lg shadow-sm p-3">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold text-gray-700">智能诊断报告</h3>
-            <button
-              onClick={() => {
-                const el = document.getElementById('roi-report');
-                if (el) el.classList.toggle('line-clamp-3');
-              }}
-              className="text-xs text-blue-600 hover:text-blue-800"
-            >
-              展开/收起
-            </button>
           </div>
-          <div id="roi-report" className="text-xs text-gray-600 whitespace-pre-wrap line-clamp-3 max-h-24 overflow-y-auto">
+          <div className="text-xs text-gray-600 whitespace-pre-wrap">
             {roiData.report}
           </div>
         </div>

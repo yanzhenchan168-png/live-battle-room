@@ -173,7 +173,7 @@ export function calculateROI(inputs: ROIInputs): ROIReport {
       risk_level,
       risk_icon: risk_level === '健康' ? '✅' : risk_level === '可控' ? '⚠️' : '❌',
       risk_title,
-      gap_text: `当前 ROI ${target_roi.toFixed(2)} vs 盈亏平衡 ${break_even_roi.toFixed(2)}`,
+      gap_text: `当前 ROI ${target_roi.toFixed(1)} vs 盈亏平衡 ${break_even_roi.toFixed(1)}`,
       traffic_level: '20-50人', // 默认流量层级
       suggestion,
       cost_breakdown,
