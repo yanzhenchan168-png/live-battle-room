@@ -15,7 +15,10 @@
 !/postcss.config.mjs
 !/tsconfig.json
 !/vercel.json
+!/webify.json
 !/webify.yaml
+!/README.md
+!/DEPLOY_TO_WEBIFY.md
 !/DEPLOY_WEBIFY.md
 !/.npmrc
 !/src/
@@ -25,4 +28,4 @@
 .env
 .env.local
 .env.development
-.env.production
+# .env.production 作为模板可以提交，但不要填写真实密钥

@@ -1,0 +1,13 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "outputDirectory": ".next",
+  "installCommand": "npm install",
+  "nodeVersion": "18",
+  "env": {
+    "BAIDU_API_KEY": "@baidu-api-key",
+    "BAIDU_SECRET_KEY": "@baidu-secret-key",
+    "COZE_BOT_ID": "@coze-bot-id",
+    "COZE_TOKEN": "@coze-token"
+  }
+}
