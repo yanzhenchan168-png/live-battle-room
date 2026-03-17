@@ -6,6 +6,7 @@ import { ROIInputs } from '@/types/battle';
 import { calculateROI } from '@/utils/roiCalculator';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { AlertTriangle, CheckCircle, XCircle, Calculator, ChevronDown, ChevronUp } from 'lucide-react';
+import DataScreenUpload from '@/components/DataScreenUpload';
 
 export default function ROIPanel() {
   const { roiData, setROIData, setPhase } = useBattleStore();
@@ -28,6 +29,32 @@ export default function ROIPanel() {
     rent_month: 3000,
     other_staff_cost: 0,
   });
+
+  // 处理截图识别数据，自动填充表单
+  const handleDataExtracted = (data: any) => {
+    const updates: Partial<ROIInputs> = {};
+    
+    if (data.gmv) {
+      updates.target_gmv = data.gmv;
+    }
+    if (data.avgPrice) {
+      updates.selling_price = data.avgPrice;
+    }
+    
+    if (Object.keys(updates).length > 0) {
+      setFormData({ ...formData, ...updates });
+    }
+
+    // 同时更新流量数据（在线人数）
+    if (data.online && useBattleStore.getState().setTrafficData) {
+      useBattleStore.getState().setTrafficData({
+        online_count: data.online,
+        level: data.online < 100 ? '低流量' : data.online < 500 ? '中流量' : '高流量',
+        strategy: data.online < 100 ? '精准获客' : data.online < 500 ? '稳步提升' : '放大转化',
+        key_actions: [],
+      });
+    }
+  };
 
   const handleCalculate = async () => {
     setLoading(true);
@@ -186,6 +213,9 @@ export default function ROIPanel() {
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-4">
+        {/* 智能识别入口 */}
+        <DataScreenUpload onDataExtracted={handleDataExtracted} />
+
         <div className="bg-white p-4 rounded-lg shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-gray-700">基础参数</h3>
