@@ -5,7 +5,6 @@ import { useBattleStore } from '@/store/battleStore';
 import { cozeClient } from '@/lib/coze-client';
 import { MessageSquare, Sparkles, Check, Copy, Send, RefreshCw, Wand2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { generateCreativeScript, adjustByTraffic, type ScriptInput } from '@/utils/creativeScriptGenerator';
 
 const SELLING_FORMULAS = [
   { id: 1, name: '痛点+解决方案', preview: '你是不是也遇到...？今天给你推荐...' },
@@ -84,7 +83,7 @@ export default function ScriptPanel() {
       });
     } catch (error) {
       console.error('Script generation failed:', error);
-      generateLocalScript();
+      alert('话术生成失败，请检查网络连接后重试');
     } finally {
       setLoading(false);
     }
@@ -149,49 +148,61 @@ export default function ScriptPanel() {
     }
   };
 
-  const generateLocalScript = () => {
+  const generateLocalScript = async () => {
     const priceValue = parseInt(price) || 199;
     
-    // 使用创意话术生成器
-    const input: ScriptInput = {
-      productName: productName,
+    const payload = {
+      product_name: productName,
       price: priceValue,
-      sellingPoint: sellingPoint,
-      targetAudience: targetAudience || '通用',
-      trafficLevel: trafficData?.online_count || 0,
-      formulaId: selectedFormula,
+      selling_point: sellingPoint,
+      target_audience: targetAudience || '通用',
+      traffic_level: trafficData?.online_count || 0,
+      formula_id: selectedFormula,
+      roi_target: roiData?.results?.target_roi || 3.5,
     };
-    
-    let script = generateCreativeScript(input);
-    
-    // 根据流量等级调整话术
-    if (trafficData?.online_count) {
-      script = adjustByTraffic(script, trafficData.online_count);
+
+    try {
+      setLoading(true);
+      const response = await cozeClient.sendCommand('/script_gen', payload);
+      
+      // 处理API返回的话术数据
+      if (response) {
+        // 清理技术参数
+        if (response.full_script) {
+          response.full_script = cleanTechnicalParams(response.full_script);
+        }
+        if (response.structure?.shaping) {
+          response.structure.shaping = cleanTechnicalParams(response.structure.shaping);
+        }
+        if (response.structure?.pricing) {
+          response.structure.pricing = cleanTechnicalParams(response.structure.pricing);
+        }
+        if (response.structure?.harvesting) {
+          response.structure.harvesting = cleanTechnicalParams(response.structure.harvesting);
+        }
+        
+        setScriptData({
+          ...response,
+          product: {
+            name: productName,
+            price: priceValue,
+            selling_point: sellingPoint,
+            target_audience: targetAudience || '通用',
+          },
+        });
+        setPhase('ready');
+      }
+    } catch (error) {
+      console.error('Script generation failed:', error);
+      alert('话术生成失败，请重试');
+    } finally {
+      setLoading(false);
     }
-    
-    setScriptData({
-      product: {
-        name: productName,
-        price: priceValue,
-        selling_point: sellingPoint,
-        target_audience: targetAudience || '通用',
-      },
-      selected_formula: selectedFormula,
-      full_script: script.full_script,
-      structure: script.structure,
-      style: script.style,
-    });
-    setPhase('ready');
   };
 
   // 换一种风格重新生成
   const handleRegenerate = () => {
-    // 直接重新生成，不需要清空数据
-    setLoading(true);
-    setTimeout(() => {
-      generateLocalScript();
-      setLoading(false);
-    }, 300);
+    generateLocalScript();
   };
 
   const handleCopy = async (text: string) => {

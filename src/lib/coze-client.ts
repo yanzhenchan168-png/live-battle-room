@@ -227,7 +227,7 @@ export class CozeLiveClient {
   }
 
   private parseScriptResponse(content: string) {
-    const lines = content.split('\n');
+    // 初始化返回结构
     let product = { name: '', price: 0, selling_point: '', target_audience: '' };
     let selected_formula = 0;
     let full_script = content;
@@ -237,36 +237,74 @@ export class CozeLiveClient {
       harvesting: '',
     };
 
-    let currentSection = '';
+    // 尝试解析JSON格式的响应
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.product) product = { ...product, ...parsed.product };
+        if (parsed.selected_formula) selected_formula = parsed.selected_formula;
+        if (parsed.structure) {
+          structure.shaping = parsed.structure.shaping || '';
+          structure.pricing = parsed.structure.pricing || '';
+          structure.harvesting = parsed.structure.harvesting || '';
+        }
+        if (parsed.full_script) full_script = parsed.full_script;
+        return { product, selected_formula, full_script, structure };
+      }
+    } catch (e) {
+      console.log('Not JSON format, parsing as text');
+    }
+
+    // 按照Markdown标题或分隔符分割内容
+    const sections = content.split(/(?=##\s*(?:🎯|💰|🎁|塑品|报价|收割|一、|二、|三、))/g);
+    
+    for (const section of sections) {
+      const lowerSection = section.toLowerCase();
+      const trimmedSection = section.trim();
+      
+      if (lowerSection.includes('塑品') || lowerSection.includes('🎯') || 
+          lowerSection.includes('一、') || lowerSection.includes('第一段') ||
+          lowerSection.includes('建立信任') || lowerSection.includes('痛点')) {
+        structure.shaping = trimmedSection;
+      } else if (lowerSection.includes('报价') || lowerSection.includes('💰') || 
+                 lowerSection.includes('二、') || lowerSection.includes('第二段') ||
+                 lowerSection.includes('价值') || lowerSection.includes('价格')) {
+        structure.pricing = trimmedSection;
+      } else if (lowerSection.includes('收割') || lowerSection.includes('🎁') || 
+                 lowerSection.includes('三、') || lowerSection.includes('第三段') ||
+                 lowerSection.includes('促单') || lowerSection.includes('成交')) {
+        structure.harvesting = trimmedSection;
+      }
+    }
+
+    // 如果没有找到分段，尝试按分隔线分割
+    if (!structure.shaping && !structure.pricing && !structure.harvesting) {
+      const parts = content.split(/---+\n?|\*\*\*+\n?|===+\n?/);
+      if (parts.length >= 3) {
+        structure.shaping = parts[0]?.trim() || '';
+        structure.pricing = parts[1]?.trim() || '';
+        structure.harvesting = parts.slice(2).join('\n---\n').trim();
+      }
+    }
+
+    // 从内容中提取产品信息
+    const lines = content.split('\n');
     for (const line of lines) {
       const lowerLine = line.toLowerCase();
       
-      if (lowerLine.includes('产品名称') || lowerLine.includes('product')) {
-        product.name = line.split(/[:：]/)[1]?.trim() || '';
+      if (lowerLine.includes('产品名称') || lowerLine.includes('产品：') || lowerLine.includes('产品:')) {
+        product.name = line.split(/[:：]/)[1]?.trim().replace(/[#*]/g, '') || '';
       }
-      if (lowerLine.includes('价格') || lowerLine.includes('price')) {
+      if ((lowerLine.includes('价格') || lowerLine.includes('售价')) && !lowerLine.includes('市场')) {
         const match = line.match(/\d+/);
         if (match) product.price = parseInt(match[0]);
       }
-      if (lowerLine.includes('卖点') || lowerLine.includes('selling')) {
-        product.selling_point = line.split(/[:：]/)[1]?.trim() || '';
+      if (lowerLine.includes('核心卖点') || lowerLine.includes('卖点') || lowerLine.includes('核心优势')) {
+        product.selling_point = line.split(/[:：]/)[1]?.trim().replace(/[#*]/g, '') || '';
       }
-      if (lowerLine.includes('目标人群')) {
-        product.target_audience = line.split(/[:：]/)[1]?.trim() || '';
-      }
-      if (lowerLine.includes('公式')) {
-        const match = line.match(/\d+/);
-        if (match) selected_formula = parseInt(match[0]);
-      }
-
-      if (lowerLine.includes('塑品') || lowerLine.includes('shaping')) {
-        currentSection = 'shaping';
-      } else if (lowerLine.includes('报价') || lowerLine.includes('pricing')) {
-        currentSection = 'pricing';
-      } else if (lowerLine.includes('收割') || lowerLine.includes('harvesting')) {
-        currentSection = 'harvesting';
-      } else if (currentSection && line.trim()) {
-        structure[currentSection] += line + '\n';
+      if (lowerLine.includes('目标人群') || lowerLine.includes('受众')) {
+        product.target_audience = line.split(/[:：]/)[1]?.trim().replace(/[#*]/g, '') || '';
       }
     }
 
@@ -275,9 +313,9 @@ export class CozeLiveClient {
       selected_formula,
       full_script,
       structure: {
-        shaping: structure.shaping.trim(),
-        pricing: structure.pricing.trim(),
-        harvesting: structure.harvesting.trim(),
+        shaping: structure.shaping || '暂无塑品段内容',
+        pricing: structure.pricing || '暂无报价段内容',
+        harvesting: structure.harvesting || '暂无收割段内容',
       },
     };
   }

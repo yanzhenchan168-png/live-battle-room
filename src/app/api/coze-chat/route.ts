@@ -29,7 +29,28 @@ export async function POST(request: NextRequest) {
       systemPrompt = '请直接进行流量诊断，不要询问任何问题。返回诊断建议和策略。';
       content = `${systemPrompt}\n\n诊断参数：${JSON.stringify(payload)}`;
     } else if (command === '/script_gen') {
-      systemPrompt = '请直接生成直播话术，不要询问任何问题。返回完整的直播话术内容。';
+      systemPrompt = `请直接生成直播话术，不要询问任何问题。
+
+你必须按照以下三段式结构生成话术，每段用明显的标题分隔：
+
+## 🎯 塑品段（建立购买需求）
+[解决"为什么买"的问题，从痛点切入，展示产品如何解决用户问题]
+
+---
+
+## 💰 报价段（建立价值认知）
+[解决"为什么找我买"的问题，对比市场价格，展示性价比和保障]
+
+---
+
+## 🎁 收割段（促成立即购买）
+[解决"为什么此时此刻买"的问题，营造紧迫感，促使用户立即下单]
+
+注意：
+1. 话术要口语化，像真正的主播在说话，不要生硬
+2. 要把产品卖点自然地融入到话术中，不要生搬硬套
+3. 每段话术要完整、有逻辑，不要半途而废
+4. 使用"姐妹们"等亲切称呼，拉近距离`;
       content = `${systemPrompt}\n\n产品信息：${JSON.stringify(payload)}`;
     } else {
       content = JSON.stringify(payload);
