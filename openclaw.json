@@ -1,7 +1,7 @@
 {
   "meta": {
-    "lastTouchedVersion": "2026.3.8",
-    "lastTouchedAt": "2026-03-11T04:49:55.144Z"
+    "lastTouchedVersion": "2026.3.13",
+    "lastTouchedAt": "2026-03-17T15:04:45.446Z"
   },
   "wizard": {
     "lastRunAt": "2026-02-05T16:16:05.545Z",
@@ -353,14 +353,15 @@
   "plugins": {
     "allow": [
       "wecom",
-      "feishu-openclaw-plugin"
+      "feishu-openclaw-plugin",
+      "feishu"
     ],
     "entries": {
       "feishu": {
-        "enabled": false
+        "enabled": true
       },
       "feishu-openclaw-plugin": {
-        "enabled": true
+        "enabled": false
       },
       "wecom": {
         "enabled": true
