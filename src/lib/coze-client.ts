@@ -87,6 +87,15 @@ export class CozeLiveClient {
       } else if (command === '/traffic_diag') {
         return this.parseTrafficResponse(content);
       } else if (command === '/script_gen') {
+        // 优先使用后端返回的结构数据
+        if (raw.full_script && raw.structure) {
+          console.log('Using backend parsed structure');
+          return {
+            full_script: raw.full_script,
+            structure: raw.structure,
+            product: payload, // 使用请求中的产品信息
+          };
+        }
         return this.parseScriptResponse(content);
       }
       return content;

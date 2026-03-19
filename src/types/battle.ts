@@ -87,5 +87,12 @@ export interface CozeChatResponse {
     role: string;
     content: string;
   }>;
-  status: string;
+  status?: string;
+  // 话术生成返回的结构化数据
+  full_script?: string;
+  structure?: {
+    shaping?: string;
+    pricing?: string;
+    harvesting?: string;
+  };
 }

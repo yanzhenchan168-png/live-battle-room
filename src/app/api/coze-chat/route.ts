@@ -211,6 +211,44 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // 解析三段式话术结构
+      function parseScriptStructure(content: string) {
+        const structure: { shaping?: string; pricing?: string; harvesting?: string } = {};
+        
+        // 使用正则匹配各段落
+        const shapingMatch = content.match(/##\s*[:：]?\s*[:：]?\s*塑品段[\s\S]*?(?=---|##\s*[:：]?\s*[:：]?\s*报价段|$)/i);
+        const pricingMatch = content.match(/##\s*[:：]?\s*[:：]?\s*报价段[\s\S]*?(?=---|##\s*[:：]?\s*[:：]?\s*收割段|$)/i);
+        const harvestingMatch = content.match(/##\s*[:：]?\s*[:：]?\s*收割段[\s\S]*?(?=---|$)/i);
+        
+        if (shapingMatch) {
+          structure.shaping = shapingMatch[0]
+            .replace(/##\s*[:：]?\s*[:：]?\s*塑品段[：:\s]*/i, '')
+            .replace(/---+/g, '')
+            .trim();
+        }
+        if (pricingMatch) {
+          structure.pricing = pricingMatch[0]
+            .replace(/##\s*[:：]?\s*[:：]?\s*报价段[：:\s]*/i, '')
+            .replace(/---+/g, '')
+            .trim();
+        }
+        if (harvestingMatch) {
+          structure.harvesting = harvestingMatch[0]
+            .replace(/##\s*[:：]?\s*[:：]?\s*收割段[：:\s]*/i, '')
+            .replace(/---+/g, '')
+            .trim();
+        }
+        
+        return structure;
+      }
+
+      // 对于话术生成命令，解析结构
+      let structure = {};
+      if (command === '/script_gen') {
+        structure = parseScriptStructure(fullContent);
+        console.log('Parsed script structure:', Object.keys(structure));
+      }
+
       // 构造响应格式
       const response = {
         messages: [{
@@ -218,6 +256,11 @@ export async function POST(request: NextRequest) {
           content: fullContent,
           type: 'answer',
         }],
+        // 话术生成额外返回结构
+        ...(command === '/script_gen' && {
+          full_script: fullContent,
+          structure,
+        }),
       };
 
       console.log('Returning response with content length:', fullContent.length);
