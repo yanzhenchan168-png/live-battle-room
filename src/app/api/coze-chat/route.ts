@@ -1,3 +1,6 @@
+export const runtime = 'nodejs';
+export const maxDuration = 60;
+
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
@@ -138,12 +141,11 @@ export async function POST(request: NextRequest) {
               const event = JSON.parse(data);
 
               if (currentEventType === 'conversation.message.delta') {
-                // 检查 content 或 reasoning_content
+                // 只取最终内容，过滤掉思考过程（reasoning_content）
                 if (event.content) {
                   fullContent += event.content;
-                } else if (event.reasoning_content) {
-                  fullContent += event.reasoning_content;
                 }
+                // 注意：不处理 event.reasoning_content，避免泄漏内部思考过程
               } else if (currentEventType === 'conversation.message.completed') {
                 // 只处理 type 为 answer 的消息，忽略 verbose（系统内部消息）
                 if (event.type === 'answer' && event.content) {
