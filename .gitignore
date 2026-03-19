@@ -20,6 +20,8 @@
 !/README.md
 !/DEPLOY_TO_WEBIFY.md
 !/DEPLOY_WEBIFY.md
+!/DEPLOY_SERVER.md
+!/ecosystem.config.js
 !/.npmrc
 !/src/
 !/public/
