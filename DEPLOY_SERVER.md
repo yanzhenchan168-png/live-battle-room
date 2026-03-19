@@ -9,7 +9,7 @@ Gitee (国内镜像)
     ↓ git pull
 阿里云轻量服务器 (宝塔面板)
     ↓ PM2 守护
-Next.js 应用运行在 5000 端口
+Next.js 应用运行在 3000 端口
 ```
 
 ---
@@ -35,7 +35,7 @@ Next.js 应用运行在 5000 端口
 cd /www/wwwroot
 
 # 从 Gitee 克隆
-git clone https://gitee.com/你的用户名/live-battle-room.git
+git clone https://gitee.com/chen-yanzhen168/live-battle-room.git
 cd live-battle-room
 ```
 
