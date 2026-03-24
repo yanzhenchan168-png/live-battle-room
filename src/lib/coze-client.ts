@@ -39,7 +39,7 @@ export class CozeLiveClient {
       const data: CozeChatResponse = await res.json();
       console.log('Raw API response:', JSON.stringify(data, null, 2));
 
-      return this.parseResponse(data, command);
+      return this.parseResponse(data, command, payload);
     } catch (error) {
       console.error('Coze API call failed:', error);
 
@@ -54,7 +54,7 @@ export class CozeLiveClient {
     }
   }
 
-  private parseResponse(raw: CozeChatResponse, command: string | null): any {
+  private parseResponse(raw: CozeChatResponse, command: string | null, payload: any): any {
     console.log('Parsing response:', JSON.stringify(raw, null, 2));
 
     if (!raw) {

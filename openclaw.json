@@ -364,7 +364,7 @@
         "enabled": false
       },
       "wecom": {
-        "enabled": true
+        "enabled": false
       }
     },
     "installs": {
