@@ -71,7 +71,7 @@ async function baiduOCR(imageBlob: Blob): Promise<string> {
   return data.words_result?.map((w: any) => w.words).join(' ') || '';
 }
 
-// 直播数据解析核心函数（一劳永逸，适配抖音/快手/视频号/小红书）
+// 直播数据解析核心函数（优化版 - 支持抖音罗盘格式）
 function parseLiveData(text: string) {
   const result: any = {
     gmv: null,
@@ -82,78 +82,149 @@ function parseLiveData(text: string) {
     uv: null,
     exposure: null,
     clickRate: null,
-    platform: detectPlatform(text), // 自动识别平台
-    rawText: text // 保留原始文本
+    platform: detectPlatform(text),
+    rawText: text // 调试时查看原始OCR文本
   };
 
-  const t = text.replace(/\s+/g, ''); // 去空格
+  // 保留原始文本用于调试，同时创建清理版本用于匹配
+  // 支持带逗号的数字：551,659 -> 551659
+  const t = text.replace(/\s+/g, '').replace(/,/g, '');
 
-  // GMV（成交金额）- 支持"万"单位
+  // ========== GMV（成交金额）==========
+  // 抖音罗盘格式：¥551,659 或 成交金额 ¥551659
   const gmvPatterns = [
-    /(?:成交金额|GMV|销售额|总收入)[^\d]*(\d+\.?\d*)(万)?/,
-    /(\d+\.?\d*)万?\s*(?:GMV|销售额)/,
-    /(?:本场|今日)[^\d]*(\d+\.?\d*)(万)?[^\d]*(?:GMV|成交)/
+    // 抖音罗盘：¥符号后跟数字（支持带逗号的原始文本）
+    /¥\s*(\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?/,
+    // 中文标签格式
+    /(?:成交金额|GMV|销售额|总收入|成交)[^\d¥]*(\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(万)?/,
+    // 数字+万+单位
+    /(\d+\.?\d*)万(?:元|GMV|成交|销售)/,
+    // 纯数字后接单位（大数值优先）
+    /(\d{5,})(?:元|GMV|成交|销售)/,
   ];
+  
   for (const pattern of gmvPatterns) {
-    const match = t.match(pattern);
+    const match = text.match(pattern) || t.match(pattern);
     if (match) {
-      const num = parseFloat(match[1]);
-      result.gmv = match[2] === '万' ? num * 10000 : num;
-      break;
+      let numStr = match[1].replace(/,/g, '');
+      let num = parseFloat(numStr);
+      // 如果有"万"单位，乘以10000
+      if (match[2] === '万' || match[0].includes('万')) {
+        num = num * 10000;
+      }
+      // 合理的GMV范围：1000 - 1亿
+      if (num >= 1000 && num <= 100000000) {
+        result.gmv = num;
+        break;
+      }
     }
   }
 
-  // 在线人数
+  // ========== 在线人数 ==========
+  // 抖音罗盘格式："平均在线" 或 "实时在线" 后面的数字
   const onlinePatterns = [
-    /(?:实时在线|当前观看|在线人数|在看人数)[^\d]*(\d+)/,
-    /(\d+)[^\d]*(?:人在看|人在线|观看)/
+    // 平均在线/实时在线 + 数字
+    /(?:平均在线|实时在线|当前在线|在线人数|在看人数)[^\d]*(\d+)/,
+    // 数字 + 人在线/人在看/观看
+    /(\d+)[^\d]*(?:人在线|人在看|观看)/,
+    // 独立的大数字（50-10000范围），可能是在线人数
+    /(?:^|[^\d])(\d{2,4})(?:[^\d]|$)/,
   ];
+  
   for (const pattern of onlinePatterns) {
     const match = t.match(pattern);
     if (match) {
-      result.online = parseInt(match[1]);
-      break;
+      let num = parseInt(match[1]);
+      // 合理的在线人数范围：10 - 100000
+      if (num >= 10 && num <= 100000) {
+        // 如果GMV已经识别，优先选择较小的数字作为在线人数
+        if (result.gmv && num < result.gmv / 100) {
+          result.online = num;
+          break;
+        } else if (!result.gmv) {
+          result.online = num;
+          break;
+        }
+      }
     }
   }
 
-  // 转化率（成交率）
-  const convMatch = t.match(/(?:转化率|成交率|下单率)[^\d]*(\d+\.?\d*)%/);
-  if (convMatch) result.conversion = parseFloat(convMatch[1]);
+  // ========== 转化率 ==========
+  // 抖音罗盘："转化率" 或 "点击-成交转化率" 后面的百分比
+  const conversionPatterns = [
+    /(?:转化率|成交率|下单率|点击-成交转化率)[^\d]*(\d+\.?\d*)%/,
+    /(\d+\.?\d*)%[^\d]*(?:转化|成交)/,
+  ];
+  for (const pattern of conversionPatterns) {
+    const match = t.match(pattern);
+    if (match) {
+      let num = parseFloat(match[1]);
+      // 合理的转化率：0.01% - 50%
+      if (num >= 0.01 && num <= 50) {
+        result.conversion = num;
+        break;
+      }
+    }
+  }
 
-  // 客单价
-  const priceMatch = t.match(/(?:客单价|人均消费|笔单价)[^\d]*(\d+)/);
-  if (priceMatch) result.avgPrice = parseInt(priceMatch[1]);
+  // ========== 客单价 ==========
+  // 抖音罗盘："客单价" 或 "成交客单价"
+  const pricePatterns = [
+    /(?:客单价|人均消费|笔单价|成交客单价)[^\d¥]*(\d+)/,
+    /(?:单价|均价)[^\d]*(\d{2,4})(?:元|¥)/,
+  ];
+  for (const pattern of pricePatterns) {
+    const match = t.match(pattern);
+    if (match) {
+      let num = parseInt(match[1]);
+      // 合理的客单价：10 - 10000
+      if (num >= 10 && num <= 10000) {
+        result.avgPrice = num;
+        break;
+      }
+    }
+  }
 
-  // 订单数/成交量
+  // ========== 订单数/成交量 ==========
   const orderPatterns = [
-    /(?:订单数|成交量|成交单|支付单)[^\d]*(\d+)/,
-    /(\d+)[^\d]*(?:单|笔)[^\d]*(?:成交|支付)/
+    /(?:订单数|成交量|成交单|支付单|成交件数)[^\d]*(\d+)/,
+    /(\d+)[^\d]*(?:单|笔)[^\d]*(?:成交|支付)/,
+    /(?:成交|支付)[^\d]*(\d{2,5})[^\d]*(?:单|笔)/,
   ];
   for (const pattern of orderPatterns) {
     const match = t.match(pattern);
     if (match) {
-      result.orders = parseInt(match[1]);
-      break;
+      let num = parseInt(match[1]);
+      if (num >= 1 && num <= 1000000) {
+        result.orders = num;
+        break;
+      }
     }
   }
 
-  // 曝光人数/次数
-  const exposureMatch = t.match(/(?:曝光人数|观看次数|流量)[^\d]*(\d+)/);
+  // ========== 曝光人数 ==========
+  const exposureMatch = t.match(/(?:曝光人数|观看次数|曝光量)[^\d]*(\d+)/);
   if (exposureMatch) result.exposure = parseInt(exposureMatch[1]);
 
-  // UV（访客数）
-  const uvMatch = t.match(/(?:UV|访客|独立访客)[^\d]*(\d+)/);
+  // ========== UV（访客数）==========
+  const uvMatch = t.match(/(?:UV|访客|独立访客|商品访客数)[^\d]*(\d+)/);
   if (uvMatch) result.uv = parseInt(uvMatch[1]);
 
-  // 点击率
+  // ========== 点击率 ==========
   const clickMatch = t.match(/(?:点击率|商品点击)[^\d]*(\d+\.?\d*)%/);
   if (clickMatch) result.clickRate = parseFloat(clickMatch[1]);
 
   // 如果没识别到GMV但识别了订单和客单价，自动计算
   if (!result.gmv && result.orders && result.avgPrice) {
     result.gmv = result.orders * result.avgPrice;
-    result._calculated = true; // 标记为计算值
+    result._calculated = true;
   }
+
+  // 调试日志（部署后可删除）
+  console.log('OCR解析结果:', {
+    原始文本前200字: text.substring(0, 200),
+    解析结果: result
+  });
 
   return result;
 }
