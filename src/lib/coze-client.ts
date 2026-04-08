@@ -200,30 +200,110 @@ export class CozeLiveClient {
   }
 
   private parseTrafficResponse(content: string) {
+    // 首先尝试解析 JSON 格式
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.key_actions || parsed.actions || parsed.tactics) {
+          return {
+            online_count: parsed.online_count || 0,
+            level: parsed.level || parsed.traffic_level || '',
+            strategy: parsed.strategy || parsed.matching_strategy || '',
+            key_actions: parsed.key_actions || parsed.actions || parsed.tactics || [],
+          };
+        }
+      }
+    } catch (e) {
+      // 不是 JSON，继续文本解析
+    }
+
     const lines = content.split('\n');
     let online_count = 0;
     let level = '';
     let strategy = '';
     const key_actions: string[] = [];
+    let inActionSection = false;
 
-    for (const line of lines) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       const lowerLine = line.toLowerCase();
+      const trimmed = line.trim();
       
+      // 在线人数
       if (lowerLine.includes('在线人数') || lowerLine.includes('在线')) {
         const match = line.match(/\d+/);
         if (match) online_count = parseInt(match[0]);
       }
       
-      if (lowerLine.includes('层级') || lowerLine.includes('level')) {
-        level = line.split(/[:：]/)[1]?.trim() || '';
+      // 流量层级
+      if ((lowerLine.includes('层级') || lowerLine.includes('level') || lowerLine.includes('等级')) && !level) {
+        const parts = line.split(/[:：]/);
+        if (parts.length > 1) {
+          level = parts[1]?.trim() || '';
+        } else {
+          // 可能是下一行
+          const nextLine = lines[i + 1]?.trim();
+          if (nextLine && !nextLine.includes('：') && !nextLine.includes(':')) {
+            level = nextLine;
+            i++;
+          }
+        }
       }
       
-      if (lowerLine.includes('策略') || lowerLine.includes('strategy')) {
-        strategy = line.split(/[:：]/)[1]?.trim() || '';
+      // 匹配策略
+      if ((lowerLine.includes('策略') || lowerLine.includes('strategy') || lowerLine.includes('建议')) && !strategy) {
+        const parts = line.split(/[:：]/);
+        if (parts.length > 1) {
+          strategy = parts[1]?.trim() || '';
+        } else {
+          // 收集多行策略
+          const nextLines = [];
+          for (let j = i + 1; j < lines.length && j < i + 5; j++) {
+            const nextLine = lines[j]?.trim();
+            if (nextLine && !nextLine.startsWith('-') && !nextLine.startsWith('*') && !/^\d+/.test(nextLine)) {
+              nextLines.push(nextLine);
+            } else if (nextLine && (nextLine.startsWith('-') || nextLine.startsWith('*') || /^\d+/.test(nextLine))) {
+              break;
+            }
+          }
+          if (nextLines.length > 0) {
+            strategy = nextLines.join(' ');
+            i += nextLines.length;
+          }
+        }
       }
       
-      if (line.trim().startsWith('-') || line.trim().startsWith('*')) {
-        key_actions.push(line.trim().replace(/^[-*]\s*/, ''));
+      // 检测关键动作区域
+      if (lowerLine.includes('关键动作') || lowerLine.includes('动作清单') || 
+          lowerLine.includes('行动建议') || lowerLine.includes(' tactics') ||
+          lowerLine.includes('actions')) {
+        inActionSection = true;
+        continue;
+      }
+      
+      // 收集关键动作 - 支持多种格式
+      if (inActionSection && trimmed) {
+        // 跳过标题行
+        if (trimmed.length < 3 || trimmed.endsWith(':') || trimmed.endsWith('：')) continue;
+        
+        // 支持格式: - 动作 / * 动作 / 1. 动作 / 1、动作 / • 动作
+        const actionMatch = trimmed.match(/^\s*[-*•·]\s*(.+)$/);
+        const numMatch = trimmed.match(/^\s*\d+[.、\s]\s*(.+)$/);
+        
+        if (actionMatch) {
+          key_actions.push(actionMatch[1].trim());
+        } else if (numMatch) {
+          key_actions.push(numMatch[1].trim());
+        } else if (!trimmed.includes('：') && !trimmed.includes(':') && trimmed.length > 5) {
+          // 如果没有标记符号但内容较长，也认为是动作（在关键动作区域内）
+          key_actions.push(trimmed);
+        }
+      }
+      
+      // 遇到空行或新的大标题，退出动作区域
+      if (inActionSection && !trimmed) {
+        // 保留在区域内，可能还有内容
       }
     }
 
