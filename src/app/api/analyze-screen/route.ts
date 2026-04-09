@@ -123,27 +123,37 @@ function parseLiveData(text: string) {
   // ========== 在线人数 ==========
   // 抖音罗盘格式："平均在线" 或 "实时在线" 后面的数字
   const onlinePatterns = [
-    // 平均在线/实时在线 + 数字
-    /(?:平均在线|实时在线|当前在线|在线人数|在看人数)[^\d]*(\d+)/,
+    // 平均在线/实时在线 + 数字（明确标签，优先使用）
+    { pattern: /(?:平均在线|实时在线|当前在线|在线人数|在看人数)[^\d]*(\d+)/, labeled: true },
     // 数字 + 人在线/人在看/观看
-    /(\d+)[^\d]*(?:人在线|人在看|观看)/,
+    { pattern: /(\d+)[^\d]*(?:人在线|人在看|观看)/, labeled: false },
     // 独立的大数字（50-10000范围），可能是在线人数
-    /(?:^|[^\d])(\d{2,4})(?:[^\d]|$)/,
+    { pattern: /(?:^|[^\d])(\d{2,4})(?:[^\d]|$)/, labeled: false },
   ];
   
-  for (const pattern of onlinePatterns) {
+  for (const { pattern, labeled } of onlinePatterns) {
     const match = t.match(pattern);
     if (match) {
       let num = parseInt(match[1]);
       // 合理的在线人数范围：10 - 100000
       if (num >= 10 && num <= 100000) {
-        // 如果GMV已经识别，优先选择较小的数字作为在线人数
-        if (result.gmv && num < result.gmv / 100) {
+        // 明确标签的匹配直接使用
+        if (labeled) {
           result.online = num;
           break;
-        } else if (!result.gmv) {
-          result.online = num;
-          break;
+        }
+        // 非明确标签的匹配需要与GMV做合理性检查
+        if (result.gmv) {
+          // 如果数字比GMV小很多（小于GMV/50），可能是在线人数
+          if (num < result.gmv / 50) {
+            result.online = num;
+            break;
+          }
+        } else {
+          // 没有GMV时，优先使用较小的数字
+          if (!result.online || num < result.online) {
+            result.online = num;
+          }
         }
       }
     }
