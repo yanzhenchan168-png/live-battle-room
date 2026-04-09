@@ -122,17 +122,22 @@ function parseLiveData(text: string) {
 
   // ========== 在线人数 ==========
   // 抖音罗盘格式："平均在线" 或 "实时在线" 后面的数字
+  // 对于明确标签模式，使用原始 text 匹配（保留空格，避免数字混淆）
   const onlinePatterns = [
     // 平均在线/实时在线 + 数字（明确标签，优先使用）
-    { pattern: /(?:平均在线|实时在线|当前在线|在线人数|在看人数)[^\d]*(\d+)/, labeled: true },
+    // 使用原始 text，保留空格分隔
+    { pattern: /(?:平均在线|实时在线|当前在线|在线人数|在看人数)\s*(\d{1,5})(?!\d)/, labeled: true },
     // 数字 + 人在线/人在看/观看
-    { pattern: /(\d+)[^\d]*(?:人在线|人在看|观看)/, labeled: false },
+    // 使用原始 text
+    { pattern: /(?:^|[^\d])(\d{2,5})\s*(?:人在线|人在看|观看)/, labeled: false },
     // 独立的大数字（50-10000范围），可能是在线人数
-    { pattern: /(?:^|[^\d])(\d{2,4})(?:[^\d]|$)/, labeled: false },
+    // 只在没有明确标签匹配时使用，从清理文本匹配
+    { pattern: /(?:^|[^\d])(\d{2,4})(?=\D|$)/, labeled: false, useCleanText: true },
   ];
   
-  for (const { pattern, labeled } of onlinePatterns) {
-    const match = t.match(pattern);
+  for (const { pattern, labeled, useCleanText } of onlinePatterns) {
+    const textToMatch = useCleanText ? t : text;
+    const match = textToMatch.match(pattern);
     if (match) {
       let num = parseInt(match[1]);
       // 合理的在线人数范围：10 - 100000
