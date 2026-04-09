@@ -1,13 +1,16 @@
 {
   "meta": {
-    "lastTouchedVersion": "2026.3.22",
-    "lastTouchedAt": "2026-03-24T13:15:20.250Z"
+    "lastTouchedVersion": "2026.3.23-2",
+    "lastTouchedAt": "2026-03-26T13:18:49.297Z"
   },
   "wizard": {
     "lastRunAt": "2026-02-05T16:16:05.545Z",
     "lastRunVersion": "2026.2.1",
     "lastRunCommand": "onboard",
     "lastRunMode": "local"
+  },
+  "update": {
+    "checkOnStart": false
   },
   "browser": {
     "enabled": true,
@@ -176,12 +179,30 @@
   "agents": {
     "defaults": {
       "model": {
-        "primary": "coze/kimi-k2-5-260127"
+        "primary": "coze/kimi-k2-5-260127",
+        "fallbacks": [
+          "coze/auto"
+        ]
       },
       "imageModel": {
         "primary": "coze/doubao-seed-1-8-251228"
       },
       "workspace": "/workspace/projects/workspace",
+      "memorySearch": {
+        "provider": "openai",
+        "remote": {
+          "baseUrl": "${COZE_INTEGRATION_MODEL_BASE_URL}",
+          "apiKey": "${COZE_WORKLOAD_IDENTITY_API_KEY}"
+        },
+        "fallback": "none",
+        "model": "doubao-embedding-vision-251215",
+        "query": {
+          "hybrid": {
+            "vectorWeight": 0.85,
+            "textWeight": 0.15
+          }
+        }
+      },
       "compaction": {
         "mode": "safeguard"
       },
@@ -353,34 +374,32 @@
   "plugins": {
     "allow": [
       "wecom",
-      "feishu-openclaw-plugin",
-      "feishu"
+      "feishu",
+      "coze-openclaw-plugin",
+      "openclaw-cozeloop-trace"
     ],
     "entries": {
       "feishu": {
         "enabled": true
       },
-      "feishu-openclaw-plugin": {
-        "enabled": false
-      },
       "wecom": {
         "enabled": false
+      },
+      "coze-openclaw-plugin": {
+        "enabled": true,
+        "config": {
+          "apiKey": "${COZE_WORKLOAD_IDENTITY_API_KEY}"
+        }
+      },
+      "openclaw-cozeloop-trace": {
+        "enabled": true,
+        "config": {
+          "authorization": "Bearer ${COZE_LOOP_API_TOKEN}",
+          "workspaceId": "${COZE_PROJECT_SPACE_ID}"
+        }
       }
     },
     "installs": {
-      "feishu-openclaw-plugin": {
-        "source": "npm",
-        "spec": "@larksuiteoapi/feishu-openclaw-plugin",
-        "installPath": "/workspace/projects/extensions/feishu-openclaw-plugin",
-        "version": "2026.3.8",
-        "resolvedName": "@larksuiteoapi/feishu-openclaw-plugin",
-        "resolvedVersion": "2026.3.8",
-        "resolvedSpec": "@larksuiteoapi/feishu-openclaw-plugin@2026.3.8",
-        "integrity": "sha512-77PzCEESdPgqL9jgoV8I3difKOuC/iRiECYLUT+2rLRD1Oy+CHtTXuYwHwztHvbY2sWitev/5rN/TseDHo2FVg==",
-        "shasum": "d4acc5a0433aaf77b0d87a028fa627b38efdb4cd",
-        "resolvedAt": "2026-03-09T15:34:38.418Z",
-        "installedAt": "2026-03-09T15:34:40.278Z"
-      },
       "wecom": {
         "source": "npm",
         "spec": "@wecom/wecom-openclaw-plugin",
@@ -393,6 +412,32 @@
         "shasum": "d903bafcb970107b1d4629d1b26d9f8b4e6b5121",
         "resolvedAt": "2026-03-08T06:36:42.450Z",
         "installedAt": "2026-03-08T06:38:35.736Z"
+      },
+      "coze-openclaw-plugin": {
+        "source": "npm",
+        "spec": "coze-openclaw-plugin",
+        "installPath": "/workspace/projects/extensions/coze-openclaw-plugin",
+        "version": "0.1.15",
+        "resolvedName": "coze-openclaw-plugin",
+        "resolvedVersion": "0.1.15",
+        "resolvedSpec": "coze-openclaw-plugin@0.1.15",
+        "integrity": "sha512-kOXnq3Dt/aZh6GstdBJeDt3FNOWzg7g63IdGGzjuYi+4LSsvgmRBa1PLhbZvnJs851gF3ULltk2Gv+at4gbpjw==",
+        "shasum": "a3f71cc988b173e42bdd98500abfd46389ad23a9",
+        "resolvedAt": "2026-03-26T09:16:49.433Z",
+        "installedAt": "2026-03-26T09:17:02.849Z"
+      },
+      "openclaw-cozeloop-trace": {
+        "source": "npm",
+        "spec": "@cozeloop/openclaw-cozeloop-trace@latest",
+        "installPath": "/workspace/projects/extensions/openclaw-cozeloop-trace",
+        "version": "0.1.2",
+        "resolvedName": "@cozeloop/openclaw-cozeloop-trace",
+        "resolvedVersion": "0.1.2",
+        "resolvedSpec": "@cozeloop/openclaw-cozeloop-trace@0.1.2",
+        "integrity": "sha512-hZXgF/bO2pt2pz6Qdvx3n9SDPw0VPSlHBV7eXf1q7+pl/pLE2UwjmrsNzEaqb+fk1bVh/rrd6tA1+xEacjywrw==",
+        "shasum": "d0df64d284ddd7521c763e1f9faf66557e6e97cf",
+        "resolvedAt": "2026-03-26T13:18:34.874Z",
+        "installedAt": "2026-03-26T13:18:44.492Z"
       }
     }
   }
