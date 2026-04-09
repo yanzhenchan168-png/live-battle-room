@@ -7,19 +7,19 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const image = formData.get('image') as Blob;
-    
+
     if (!image) {
       return NextResponse.json({ error: '请上传图片' }, { status: 400 });
     }
 
     // 1. 百度OCR识别
     const ocrText = await baiduOCR(image);
-    
+
     // 2. 解析直播数据（核心代码，一劳永逸）
     const data = parseLiveData(ocrText);
-    
-    return NextResponse.json({ 
-      success: true, 
+
+    return NextResponse.json({
+      success: true,
       data,
       raw: ocrText // 调试用，稳定后可删除
     });
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('OCR失败:', error);
     return NextResponse.json(
-      { error: '识别失败，请确保图片清晰且为数据大屏截图' }, 
+      { error: '识别失败，请确保图片清晰且为数据大屏截图' },
       { status: 500 }
     );
   }
@@ -260,12 +260,16 @@ function parseLiveData(text: string) {
   }
 
   // 调试日志（部署后可删除）
-  console.log('OCR解析结果:', {
-    原始文本前200字: text.substring(0, 200),
-    解析结果: result
-  });
+  const debugInfo = {
+    原始文本前300字: text.substring(0, 300),
+    清理文本前300字: t.substring(0, 300),
+    GMV匹配结果: result.gmv,
+    在线人数匹配结果: result.online,
+    平台识别: result.platform,
+  };
+  console.log('OCR解析结果:', debugInfo);
 
-  return result;
+  return { ...result, _debug: debugInfo };
 }
 
 // 自动识别平台
