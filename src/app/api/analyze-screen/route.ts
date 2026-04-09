@@ -94,18 +94,26 @@ function parseLiveData(text: string) {
   // 抖音罗盘格式：¥551,659 或 成交金额 ¥551659
   const gmvPatterns = [
     // 优先匹配：中文标签+货币符号（如"直播间成交金额 ¥551,659"）
-    /(?:直播间成交金额|GMV|成交金额|销售额|总收入|成交)[^\d¥]*[¥￥]?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?:万)?/,
+    { pattern: /(?:直播间成交金额|GMV|成交金额|销售额|总收入|成交)[^\d¥]*[¥￥]?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?:万)?/, name: '中文标签+货币符号' },
     // 次优先：纯货币符号（如"¥551,659"）
-    /¥\s*(\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?/,
+    { pattern: /¥\s*(\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?/, name: '纯货币符号' },
     // 数字+万+单位
-    /(\d+\.?\d*)万(?:元|GMV|成交|销售)/,
+    { pattern: /(\d+\.?\d*)万(?:元|GMV|成交|销售)/, name: '数字+万+单位' },
     // 纯数字后接单位（大数值优先）
-    /(\d{5,})(?:元|GMV|成交|销售)/,
+    { pattern: /(\d{5,})(?:元|GMV|成交|销售)/, name: '大数字+单位' },
   ];
-  
-  for (const pattern of gmvPatterns) {
+
+  console.log('GMV 匹配调试 - 原始文本:', text.substring(0, 300));
+  console.log('GMV 匹配调试 - 清理文本:', t.substring(0, 300));
+
+  for (const { pattern, name } of gmvPatterns) {
     const match = text.match(pattern) || t.match(pattern);
     if (match) {
+      console.log(`GMV 匹配到模式 [${name}]:`, {
+        完整匹配: match[0],
+        捕获组1: match[1],
+        捕获组2: match[2],
+      });
       let numStr = match[1].replace(/,/g, '');
       let num = parseFloat(numStr);
       // 如果有"万"单位，乘以10000
@@ -115,7 +123,10 @@ function parseLiveData(text: string) {
       // 合理的GMV范围：1000 - 1亿
       if (num >= 1000 && num <= 100000000) {
         result.gmv = num;
+        console.log(`GMV 匹配成功 [${name}]:`, num);
         break;
+      } else {
+        console.log(`GMV 匹配失败 [${name}]: ${num} 超出合理范围 (1000-1亿)`);
       }
     }
   }
@@ -126,25 +137,32 @@ function parseLiveData(text: string) {
   const onlinePatterns = [
     // 平均在线/实时在线 + 数字（明确标签，优先使用）
     // 使用原始 text，保留空格分隔
-    { pattern: /(?:平均在线|实时在线|当前在线|在线人数|在看人数)\s*(\d{1,5})(?!\d)/, labeled: true },
+    { pattern: /(?:平均在线|实时在线|当前在线|在线人数|在看人数)\s*(\d{1,5})(?!\d)/, labeled: true, name: '明确标签' },
     // 数字 + 人在线/人在看/观看
     // 使用原始 text
-    { pattern: /(?:^|[^\d])(\d{2,5})\s*(?:人在线|人在看|观看)/, labeled: false },
+    { pattern: /(?:^|[^\d])(\d{2,5})\s*(?:人在线|人在看|观看)/, labeled: false, name: '数字+标签' },
     // 独立的大数字（50-10000范围），可能是在线人数
     // 只在没有明确标签匹配时使用，从清理文本匹配
-    { pattern: /(?:^|[^\d])(\d{2,4})(?=\D|$)/, labeled: false, useCleanText: true },
+    { pattern: /(?:^|[^\d])(\d{2,4})(?=\D|$)/, labeled: false, useCleanText: true, name: '独立数字' },
   ];
-  
-  for (const { pattern, labeled, useCleanText } of onlinePatterns) {
+
+  console.log('在线人数匹配调试 - 原始文本:', text.substring(0, 200));
+
+  for (const { pattern, labeled, useCleanText, name } of onlinePatterns) {
     const textToMatch = useCleanText ? t : text;
     const match = textToMatch.match(pattern);
     if (match) {
+      console.log(`在线人数匹配到模式 [${name}]:`, {
+        完整匹配: match[0],
+        捕获组1: match[1],
+      });
       let num = parseInt(match[1]);
       // 合理的在线人数范围：10 - 100000
       if (num >= 10 && num <= 100000) {
         // 明确标签的匹配直接使用
         if (labeled) {
           result.online = num;
+          console.log(`在线人数匹配成功 [${name}]:`, num);
           break;
         }
         // 非明确标签的匹配需要与GMV做合理性检查
@@ -152,14 +170,20 @@ function parseLiveData(text: string) {
           // 如果数字比GMV小很多（小于GMV/50），可能是在线人数
           if (num < result.gmv / 50) {
             result.online = num;
+            console.log(`在线人数匹配成功 [${name}] (合理性检查通过):`, num);
             break;
+          } else {
+            console.log(`在线人数匹配失败 [${name}] (合理性检查失败): ${num} >= GMV/50`);
           }
         } else {
           // 没有GMV时，优先使用较小的数字
           if (!result.online || num < result.online) {
             result.online = num;
+            console.log(`在线人数匹配成功 [${name}] (暂存):`, num);
           }
         }
+      } else {
+        console.log(`在线人数匹配失败 [${name}]: ${num} 超出合理范围 (10-100000)`);
       }
     }
   }
