@@ -39,11 +39,9 @@ export default function DataScreenUpload({ onDataExtracted, className = '' }: Pr
     setError(null);
 
     try {
-      // 压缩图片（提高质量和分辨率，以便OCR能识别小字体）
-      // 原来是 1024px + 0.8 质量，现在改为 1920px + 0.95 质量
-      const compressed = await compressImage(file, 1920);
+      // 不压缩图片，直接上传原始图片，保证 OCR 能识别小字体
       const formData = new FormData();
-      formData.append('image', compressed);
+      formData.append('image', file);
 
       const res = await fetch('/api/analyze-screen', {
         method: 'POST',
