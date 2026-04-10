@@ -39,8 +39,9 @@ export default function DataScreenUpload({ onDataExtracted, className = '' }: Pr
     setError(null);
 
     try {
-      // 压缩图片（百度OCR有大小限制）
-      const compressed = await compressImage(file, 1024);
+      // 压缩图片（提高质量和分辨率，以便OCR能识别小字体）
+      // 原来是 1024px + 0.8 质量，现在改为 1920px + 0.95 质量
+      const compressed = await compressImage(file, 1920);
       const formData = new FormData();
       formData.append('image', compressed);
 
@@ -76,7 +77,8 @@ export default function DataScreenUpload({ onDataExtracted, className = '' }: Pr
           canvas.height = img.height * scale;
           const ctx = canvas.getContext('2d')!;
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          canvas.toBlob((blob) => resolve(blob!), 'image/jpeg', 0.8);
+          // 提高压缩质量到 0.95，保证小字体清晰度
+          canvas.toBlob((blob) => resolve(blob!), 'image/jpeg', 0.95);
         };
         img.src = e.target?.result as string;
       };

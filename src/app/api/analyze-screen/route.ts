@@ -53,8 +53,9 @@ async function baiduOCR(imageBlob: Blob): Promise<string> {
   const buffer = Buffer.from(await imageBlob.arrayBuffer());
   const base64 = buffer.toString('base64');
 
+  // 使用 webimage 模式，针对网页/截图识别更准确
   const res = await fetch(
-    `https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic?access_token=${baiduTokenCache.token}`,
+    `https://aip.baidubce.com/rest/2.0/ocr/v1/webimage?access_token=${baiduTokenCache.token}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -114,6 +115,18 @@ function parseLiveData(text: string) {
         捕获组1: match[1],
         捕获组2: match[2],
       });
+
+      // 检查是否匹配到日期格式（排除 YYYY/MM/DD 或 YYYY-MM-DD）
+      const fullMatch = match[0];
+      const isDateFormat = /(?:\/|-)\d{1,2}(?:\/|-)/.test(fullMatch) || // 2026/03/12
+                          /(?:^|[^0-9])19\d{2}([/\-]\d{1,2}){2}/.test(fullMatch) || // 19XX/XX/XX
+                          /(?:^|[^0-9])20\d{2}([/\-]\d{1,2}){2}/.test(fullMatch);   // 20XX/XX/XX
+
+      if (isDateFormat) {
+        console.log(`GMV 匹配失败 [${name}]: 匹配到日期格式，跳过`);
+        continue;
+      }
+
       let numStr = match[1].replace(/,/g, '');
       let num = parseFloat(numStr);
       // 如果有"万"单位，乘以10000
