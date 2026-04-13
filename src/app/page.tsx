@@ -39,6 +39,14 @@ export interface OCRData {
 
 // ==================== Zustand Store ====================
 
+interface SpyAccount {
+  id: string;
+  douyinId: string;
+  name: string;
+  isLive: boolean;
+  lastRecordAt?: string;
+}
+
 interface WorkspaceState {
   currentMode: Mode;
   setMode: (mode: Mode) => void;
@@ -50,8 +58,18 @@ interface WorkspaceState {
   updateSegment: (id: string, content: string) => void;
   setProductInfo: (info: ProductInfo) => void;
   
+  // 话术生成
+  isGenerating: boolean;
+  generateError: string | null;
+  generateScript: (style: '憋单' | '平播' | '收割' | 'refresh') => Promise<void>;
+  
   ocrData: OCRData | null;
   setOCRData: (data: OCRData | null) => void;
+  
+  // 对标情报
+  spyAccounts: SpyAccount[];
+  addSpyAccount: (douyinId: string, name: string) => Promise<void>;
+  removeSpyAccount: (id: string) => void;
   
   spySnippets: SpySnippet[];
   addSpySnippet: (snippet: SpySnippet) => void;
@@ -92,8 +110,90 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         scriptContent: { ...state.scriptContent, productInfo: info },
       })),
       
+      // 话术生成
+      isGenerating: false,
+      generateError: null,
+      generateScript: async (style) => {
+        set({ isGenerating: true, generateError: null });
+        
+        try {
+          const res = await fetch('/api/bot/generate-script', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              style,
+              productInfo: get().scriptContent.productInfo,
+              ocrData: get().ocrData,
+              currentSegments: get().scriptContent.segments,
+            }),
+          });
+          
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.message || '生成失败');
+          }
+          
+          const { segments } = await res.json();
+          
+          // 更新所有段落
+          segments.forEach((seg: ScriptSegment) => {
+            const existing = get().scriptContent.segments.find((s) => s.type === seg.type);
+            if (existing) {
+              get().updateSegment(existing.id, seg.content);
+            }
+          });
+        } catch (err) {
+          set({ generateError: err instanceof Error ? err.message : '生成失败' });
+          // 3秒后自动清除错误
+          setTimeout(() => set({ generateError: null }), 3000);
+        } finally {
+          set({ isGenerating: false });
+        }
+      },
+      
       ocrData: null,
       setOCRData: (data) => set({ ocrData: data }),
+      
+      // 对标账号管理
+      spyAccounts: [],
+      addSpyAccount: async (douyinId, name) => {
+        if (!douyinId.trim() || !name.trim()) {
+          throw new Error('抖音号和名称不能为空');
+        }
+        
+        // 检查是否已存在
+        const exists = get().spyAccounts.find((a) => a.douyinId === douyinId.trim());
+        if (exists) {
+          throw new Error('该账号已在监控列表中');
+        }
+        
+        const newAccount: SpyAccount = {
+          id: Date.now().toString(),
+          douyinId: douyinId.trim(),
+          name: name.trim(),
+          isLive: false,
+        };
+        
+        set((state) => ({
+          spyAccounts: [...state.spyAccounts, newAccount],
+        }));
+        
+        // 可选：调用后端API开始监控
+        try {
+          await fetch('/api/spy/accounts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newAccount),
+          });
+        } catch {
+          // 后端调用失败不影响前端存储
+        }
+      },
+      removeSpyAccount: (id) => {
+        set((state) => ({
+          spyAccounts: state.spyAccounts.filter((a) => a.id !== id),
+        }));
+      },
       
       spySnippets: [],
       addSpySnippet: (snippet) => set((state) => ({
@@ -129,6 +229,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           }
         } catch (err) {
           set({ fuseError: err instanceof Error ? err.message : '融合失败' });
+          setTimeout(() => set({ fuseError: null }), 3000);
         } finally {
           set({ isFusing: false });
         }
@@ -144,6 +245,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       partialize: (state) => ({
         scriptContent: state.scriptContent,
         spySnippets: state.spySnippets,
+        spyAccounts: state.spyAccounts,
       }),
     }
   )
@@ -163,6 +265,20 @@ function ModeNavigator() {
 
   return (
     <nav className="h-16 bg-purple-600 flex items-center px-6 shadow-md shrink-0">
+      {/* Logo + 标题 */}
+      <div className="flex items-center gap-3 mr-8">
+        <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+          <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <div>
+          <h1 className="text-white font-bold text-lg">一站式直播作战室</h1>
+          <p className="text-purple-200 text-xs">Live Battle Room 2.0</p>
+        </div>
+      </div>
+
+      {/* 模式切换 */}
       <div className="flex items-center gap-2 bg-purple-700/50 rounded-lg p-1">
         {MODES.map((mode) => (
           <button
@@ -270,12 +386,33 @@ function WorkspaceLayout({
 // ==================== 模式1: 话术创作 ====================
 
 function ScriptCreator() {
-  const { scriptContent, ocrData, updateSegment, setProductInfo, isFusing } = useWorkspaceStore();
+  const { 
+    scriptContent, 
+    ocrData, 
+    updateSegment, 
+    setProductInfo, 
+    isFusing,
+    isGenerating,
+    generateError,
+    generateScript 
+  } = useWorkspaceStore();
   const [activeTab, setActiveTab] = useState<'塑品' | '报价' | '收割'>('塑品');
+  const [activeStyle, setActiveStyle] = useState<'憋单' | '平播' | '收割'>('平播');
   const activeSegment = scriptContent.segments.find((s) => s.type === activeTab);
 
   const handleProductChange = (field: keyof ProductInfo, value: any) => {
     setProductInfo({ ...scriptContent.productInfo, [field]: value });
+  };
+
+  const handleGenerate = async (style: '憋单' | '平播' | '收割' | 'refresh') => {
+    if (!scriptContent.productInfo.name) {
+      alert('请先填写产品名称');
+      return;
+    }
+    if (style !== 'refresh') {
+      setActiveStyle(style as '憋单' | '平播' | '收割');
+    }
+    await generateScript(style);
   };
 
   return (
@@ -379,17 +516,66 @@ function ScriptCreator() {
               <div className="flex items-center justify-between mb-4">
                 <span className="text-xs text-gray-400">编辑 {activeTab} 段落</span>
                 <div className="flex gap-2">
-                  <button className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded">
-                    憋单风格
+                  <button 
+                    onClick={() => handleGenerate('憋单')}
+                    disabled={isGenerating}
+                    className={`
+                      px-3 py-1.5 text-xs rounded transition-all
+                      ${activeStyle === '憋单' 
+                        ? 'bg-orange-500 text-white' 
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}
+                      ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}
+                    `}
+                  >
+                    {isGenerating && activeStyle === '憋单' ? (
+                      <span className="flex items-center gap-1">
+                        <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        生成中...
+                      </span>
+                    ) : '憋单风格'}
                   </button>
-                  <button className="px-3 py-1.5 text-xs bg-purple-100 text-purple-700 rounded">
-                    平播风格
+                  <button 
+                    onClick={() => handleGenerate('平播')}
+                    disabled={isGenerating}
+                    className={`
+                      px-3 py-1.5 text-xs rounded transition-all
+                      ${activeStyle === '平播' 
+                        ? 'bg-purple-600 text-white' 
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}
+                      ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}
+                    `}
+                  >
+                    {isGenerating && activeStyle === '平播' ? (
+                      <span className="flex items-center gap-1">
+                        <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        生成中...
+                      </span>
+                    ) : '平播风格'}
                   </button>
-                  <button className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded">
-                    换一版
+                  <button 
+                    onClick={() => handleGenerate('refresh')}
+                    disabled={isGenerating}
+                    className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isGenerating ? (
+                      <span className="flex items-center gap-1">
+                        <span className="w-3 h-3 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+                        生成中...
+                      </span>
+                    ) : '换一版'}
                   </button>
                 </div>
               </div>
+              
+              {/* 错误提示 */}
+              {generateError && (
+                <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+                  <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-sm text-red-600">{generateError}</span>
+                </div>
+              )}
               
               <textarea
                 value={activeSegment?.content || ''}
@@ -398,10 +584,10 @@ function ScriptCreator() {
                 placeholder={`请输入${activeTab}话术...`}
               />
               
-              {isFusing && (
+              {(isFusing || isGenerating) && (
                 <div className="mt-2 flex items-center gap-2 text-sm text-purple-600">
                   <span className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
-                  正在融合生成...
+                  {isFusing ? '正在融合生成...' : '正在生成话术...'}
                 </div>
               )}
             </div>
@@ -449,8 +635,13 @@ function ScriptCreator() {
 // ==================== 模式2: 对标情报 ====================
 
 function SpyIntelligence() {
-  const { spySnippets, fuseSnippetToScript, setMode } = useWorkspaceStore();
+  const { spySnippets, spyAccounts, fuseSnippetToScript, addSpyAccount, removeSpyAccount } = useWorkspaceStore();
   const [draggedSnippet, setDraggedSnippet] = useState<SpySnippet | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newDouyinId, setNewDouyinId] = useState('');
+  const [newName, setNewName] = useState('');
+  const [addError, setAddError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Mock数据
   const mockSnippets: SpySnippet[] = [
@@ -485,38 +676,139 @@ function SpyIntelligence() {
     setDraggedSnippet(null);
   };
 
+  const handleAddAccount = async () => {
+    if (!newDouyinId.trim() || !newName.trim()) {
+      setAddError('请填写完整信息');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    setAddError(null);
+    
+    try {
+      await addSpyAccount(newDouyinId, newName);
+      setNewDouyinId('');
+      setNewName('');
+      setIsAdding(false);
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : '添加失败');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const displayAccounts = spyAccounts.length > 0 ? spyAccounts : [
+    { id: 'mock1', name: 'XX女装旗舰店', douyinId: 'xxx123', isLive: true },
+    { id: 'mock2', name: 'YY潮流服饰', douyinId: 'yyy456', isLive: false },
+  ];
+
   return (
     <WorkspaceLayout
       leftPanel={
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-700">监控账号</h3>
-            <button className="px-3 py-1.5 text-xs bg-purple-600 text-white rounded hover:bg-purple-700">
-              + 添加
+            <button 
+              onClick={() => setIsAdding(true)}
+              className="px-3 py-1.5 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 flex items-center gap-1"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              添加
             </button>
           </div>
           
+          {/* 添加账号表单 */}
+          {isAdding && (
+            <div className="bg-white p-3 rounded-lg border border-purple-200 shadow-sm">
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="账号名称"
+                  className="w-full px-3 py-2 border border-gray-200 rounded text-sm"
+                />
+                <input
+                  type="text"
+                  value={newDouyinId}
+                  onChange={(e) => setNewDouyinId(e.target.value)}
+                  placeholder="抖音号"
+                  className="w-full px-3 py-2 border border-gray-200 rounded text-sm"
+                />
+                {addError && (
+                  <div className="text-xs text-red-500">{addError}</div>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleAddAccount}
+                    disabled={isSubmitting}
+                    className="flex-1 px-3 py-2 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 disabled:opacity-50"
+                  >
+                    {isSubmitting ? (
+                      <span className="flex items-center justify-center gap-1">
+                        <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        添加中...
+                      </span>
+                    ) : '确认添加'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsAdding(false);
+                      setAddError(null);
+                      setNewDouyinId('');
+                      setNewName('');
+                    }}
+                    className="px-3 py-2 border border-gray-300 text-gray-600 text-xs rounded hover:bg-gray-50"
+                  >
+                    取消
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* 账号列表 */}
           <div className="space-y-2">
-            {[
-              { id: '1', name: 'XX女装旗舰店', douyinId: 'xxx123', isLive: true },
-              { id: '2', name: 'YY潮流服饰', douyinId: 'yyy456', isLive: false },
-              { id: '3', name: 'ZZ时尚穿搭', douyinId: 'zzz789', isLive: true },
-            ].map((account) => (
-              <div key={account.id} className="bg-white p-3 rounded-lg border border-gray-200">
+            {displayAccounts.map((account) => (
+              <div key={account.id} className="bg-white p-3 rounded-lg border border-gray-200 group">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-700">{account.name}</span>
-                  <span className={`
-                    w-2 h-2 rounded-full
-                    ${account.isLive ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}
-                  `} />
+                  <div className="flex items-center gap-2">
+                    <span className={`
+                      w-2 h-2 rounded-full
+                      ${account.isLive ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}
+                    `} />
+                    {!account.id.startsWith('mock') && (
+                      <button
+                        onClick={() => removeSpyAccount(account.id)}
+                        className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity"
+                        title="删除"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="text-xs text-gray-400 mt-1">{account.douyinId}</div>
                 {account.isLive && (
-                  <div className="mt-2 text-xs text-green-600">● 正在直播</div>
+                  <div className="mt-2 text-xs text-green-600 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                    正在直播
+                  </div>
                 )}
               </div>
             ))}
           </div>
+          
+          {spyAccounts.length === 0 && (
+            <div className="text-center py-4 text-xs text-gray-400">
+              暂无监控账号，点击"添加"开始
+            </div>
+          )}
         </div>
       }
       centerPanel={
