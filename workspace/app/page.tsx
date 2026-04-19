@@ -1,17 +1,17 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
+import React, { ReactNode, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 // ==================== 类型定义 ====================
 
-export type Mode = 'script' | 'spy' | 'training' | 'analysis';
+export type Mode = 'script' | 'spy' | 'training' | 'analysis' | 'dashboard' | 'schedule';
 
 export interface ScriptSegment {
   id: string;
-  type: '塑品' | '报价' | '收割';
+  type: '开场钩子' | '塑品环节' | '比价话术' | '信任背书' | '报价环节' | '逼单环节';
   content: string;
   isViolation?: boolean;
 }
@@ -58,7 +58,10 @@ interface WorkspaceState {
   
   isFusing: boolean;
   fuseError: string | null;
-  fuseSnippetToScript: (snippetId: string, targetSegment: '塑品' | '报价' | '收割') => Promise<void>;
+  fuseSnippetToScript: (snippetId: string, targetSegment: ScriptSegment['type']) => Promise<void>;
+  generateScript: () => Promise<void>;
+  isGenerating: boolean;
+  generateError: string | null;
   
   leftCollapsed: boolean;
   rightCollapsed: boolean;
@@ -74,9 +77,12 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       
       scriptContent: {
         segments: [
-          { id: '1', type: '塑品', content: '' },
-          { id: '2', type: '报价', content: '' },
-          { id: '3', type: '收割', content: '' },
+          { id: '1', type: '开场钩子', content: '' },
+          { id: '2', type: '塑品环节', content: '' },
+          { id: '3', type: '比价话术', content: '' },
+          { id: '4', type: '信任背书', content: '' },
+          { id: '5', type: '报价环节', content: '' },
+          { id: '6', type: '逼单环节', content: '' },
         ],
         productInfo: { name: '', price: 0, sellingPoints: [] },
       },
@@ -134,6 +140,74 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         }
       },
       
+      isGenerating: false,
+      generateError: null,
+      generateScript: async () => {
+        const { productInfo } = get().scriptContent;
+        if (!productInfo.name || productInfo.sellingPoints.length === 0) {
+          set({ generateError: '请先填写产品名称和卖点' });
+          return;
+        }
+        
+        set({ isGenerating: true, generateError: null });
+        
+        try {
+          const res = await fetch('/api/coze-chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              command: '/script_gen',
+              payload: productInfo,
+            }),
+          });
+          
+          if (!res.ok) throw new Error('生成失败');
+          
+          const data = await res.json();
+          const content = data.messages?.[0]?.content || '';
+          
+          // 解析JSON格式的segments
+          let parsedSegments: ScriptSegment[] = [];
+          try {
+            // 尝试提取JSON部分
+            const jsonMatch = content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              const parsed = JSON.parse(jsonMatch[0]);
+              if (parsed.segments && Array.isArray(parsed.segments)) {
+                parsedSegments = parsed.segments.map((s: any, idx: number) => ({
+                  id: String(idx + 1),
+                  type: s.type,
+                  content: s.content,
+                }));
+              }
+            }
+          } catch (e) {
+            console.error('Parse error:', e);
+            // 降级处理：如果解析失败，把所有内容放到塑品环节
+            parsedSegments = [
+              { id: '1', type: '开场钩子', content: '' },
+              { id: '2', type: '塑品环节', content: content },
+              { id: '3', type: '比价话术', content: '' },
+              { id: '4', type: '信任背书', content: '' },
+              { id: '5', type: '报价环节', content: '' },
+              { id: '6', type: '逼单环节', content: '' },
+            ];
+          }
+          
+          // 更新所有segments
+          set((state) => ({
+            scriptContent: {
+              ...state.scriptContent,
+              segments: parsedSegments.length > 0 ? parsedSegments : state.scriptContent.segments,
+            },
+          }));
+        } catch (err) {
+          set({ generateError: err instanceof Error ? err.message : '生成失败' });
+        } finally {
+          set({ isGenerating: false });
+        }
+      },
+      
       leftCollapsed: false,
       rightCollapsed: false,
       toggleLeft: () => set((state) => ({ leftCollapsed: !state.leftCollapsed })),
@@ -156,6 +230,8 @@ const MODES: { id: Mode; label: string }[] = [
   { id: 'spy', label: '对标情报' },
   { id: 'training', label: '新人陪练' },
   { id: 'analysis', label: '投流复盘' },
+  { id: 'dashboard', label: '实时大屏' },
+  { id: 'schedule', label: '排班管理' },
 ];
 
 function ModeNavigator() {
@@ -270,9 +346,11 @@ function WorkspaceLayout({
 // ==================== 模式1: 话术创作 ====================
 
 function ScriptCreator() {
-  const { scriptContent, ocrData, updateSegment, setProductInfo, isFusing } = useWorkspaceStore();
-  const [activeTab, setActiveTab] = useState<'塑品' | '报价' | '收割'>('塑品');
+  const { scriptContent, ocrData, updateSegment, setProductInfo, isFusing, generateScript, isGenerating, generateError } = useWorkspaceStore();
+  const [activeTab, setActiveTab] = useState<ScriptSegment['type']>('开场钩子');
   const activeSegment = scriptContent.segments.find((s) => s.type === activeTab);
+  
+  const segmentTabs: ScriptSegment['type'][] = ['开场钩子', '塑品环节', '比价话术', '信任背书', '报价环节', '逼单环节'];
 
   const handleProductChange = (field: keyof ProductInfo, value: any) => {
     setProductInfo({ ...scriptContent.productInfo, [field]: value });
@@ -282,13 +360,14 @@ function ScriptCreator() {
     <WorkspaceLayout
       leftPanel={
         <div className="space-y-4">
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">OCR识别数据</h3>
-            {ocrData ? (
+          <OCRUploader />
+          {ocrData && (
+            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">识别结果</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-500">GMV:</span>
-                  <span className="font-medium">¥{ocrData.gmv}</span>
+                  <span className="font-medium">¥{ocrData.gmv.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">在线人数:</span>
@@ -309,10 +388,8 @@ function ScriptCreator() {
                   </span>
                 </div>
               </div>
-            ) : (
-              <div className="text-sm text-gray-400">请上传截图识别</div>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
             <h3 className="text-sm font-semibold text-gray-700 mb-3">产品信息</h3>
@@ -349,27 +426,50 @@ function ScriptCreator() {
             </div>
           </div>
 
+          <button
+            onClick={generateScript}
+            disabled={isGenerating || !scriptContent.productInfo.name}
+            className={`
+              w-full py-2 rounded-lg text-sm font-medium transition-all
+              ${isGenerating || !scriptContent.productInfo.name
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-purple-600 text-white hover:bg-purple-700'}
+            `}
+          >
+            {isGenerating ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                生成中...
+              </span>
+            ) : (
+              '生成完整话术'
+            )}
+          </button>
+          {generateError && (
+            <p className="text-xs text-red-500 mt-2">{generateError}</p>
+          )}
+          
           <div className="border-2 border-dashed border-purple-300 rounded-lg p-4 text-center">
             <p className="text-xs text-purple-600">拖拽对标片段到此处</p>
-            <p className="text-xs text-gray-400 mt-1">自动融合生成话术</p>
+            <p className="text-xs text-gray-400 mt-1">自动融合优化话术</p>
           </div>
         </div>
       }
       centerPanel={
         <div className="h-full flex flex-col">
-          <div className="flex border-b border-gray-200 px-6 pt-4">
-            {(['塑品', '报价', '收割'] as const).map((tab) => (
+          <div className="flex border-b border-gray-200 px-6 pt-4 overflow-x-auto">
+            {segmentTabs.map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`
-                  px-4 py-2 text-sm font-medium border-b-2 transition-colors
+                  px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap
                   ${activeTab === tab 
                     ? 'border-purple-600 text-purple-600' 
                     : 'border-transparent text-gray-500 hover:text-gray-700'}
                 `}
               >
-                {tab}话术
+                {tab}
               </button>
             ))}
           </div>
@@ -558,7 +658,7 @@ function SpyIntelligence() {
                 <div className="mt-2 flex items-center gap-2">
                   <span className="text-xs text-purple-600">拖拽到话术编辑器</span>
                   <button 
-                    onClick={() => fuseSnippetToScript(snippet.id, '塑品')}
+                    onClick={() => fuseSnippetToScript(snippet.id, '塑品环节')}
                     className="text-xs text-gray-400 hover:text-purple-600 underline"
                   >
                     直接融合
@@ -1127,6 +1227,554 @@ function PostGameAnalysis() {
   );
 }
 
+// ==================== OCR上传组件 ====================
+
+function OCRUploader() {
+  const { setOCRData } = useWorkspaceStore();
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 验证文件类型
+    if (!file.type.startsWith('image/')) {
+      setUploadError('请上传图片文件');
+      return;
+    }
+
+    // 验证文件大小 (最大5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError('图片大小不能超过5MB');
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const res = await fetch('/api/analyze-screen', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error('识别失败');
+      }
+
+      const data = await res.json();
+      
+      // 判断流量层级
+      let trafficLevel: OCRData['trafficLevel'] = '个位数';
+      if (data.onlineCount > 50) {
+        trafficLevel = '高流量';
+      } else if (data.onlineCount >= 10) {
+        trafficLevel = '10-50';
+      }
+
+      setOCRData({
+        gmv: data.gmv || 0,
+        onlineCount: data.online || 0,
+        conversionRate: data.conversionRate || 0,
+        trafficLevel,
+      });
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : '上传失败');
+    } finally {
+      setIsUploading(false);
+      // 清空input，允许重复上传同一文件
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  return (
+    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+      <h3 className="text-sm font-semibold text-gray-700 mb-3">OCR识别数据</h3>
+      
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+      
+      <button
+        onClick={() => fileInputRef.current?.click()}
+        disabled={isUploading}
+        className={`
+          w-full py-3 border-2 border-dashed rounded-lg text-sm transition-all
+          ${isUploading 
+            ? 'border-purple-300 bg-purple-50 text-purple-600' 
+            : 'border-purple-300 hover:border-purple-500 text-purple-600 hover:bg-purple-50'}
+        `}
+      >
+        {isUploading ? (
+          <span className="flex items-center justify-center gap-2">
+            <span className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+            识别中...
+          </span>
+        ) : (
+          <span className="flex items-center justify-center gap-2">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            点击上传截图识别
+          </span>
+        )}
+      </button>
+      
+      {uploadError && (
+        <p className="text-xs text-red-500 mt-2">{uploadError}</p>
+      )}
+      
+      <p className="text-xs text-gray-400 mt-2 text-center">
+        支持抖音罗盘、快手电商等截图
+      </p>
+    </div>
+  );
+}
+
+// ==================== 模式5: 实时大屏 ====================
+
+function RealtimeDashboard() {
+  const [metrics, setMetrics] = useState({
+    gmv: 125680,
+    onlineCount: 156,
+    orderCount: 892,
+    conversionRate: 3.2,
+    gpm: 805,
+    avgWatchTime: 48,
+  });
+
+  const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h'>('1h');
+  const [isLive, setIsLive] = useState(true);
+
+  // 模拟实时数据更新
+  React.useEffect(() => {
+    if (!isLive) return;
+    const interval = setInterval(() => {
+      setMetrics(prev => ({
+        ...prev,
+        gmv: prev.gmv + Math.floor(Math.random() * 1000),
+        onlineCount: Math.max(50, prev.onlineCount + Math.floor(Math.random() * 20 - 10)),
+        orderCount: prev.orderCount + Math.floor(Math.random() * 5),
+      }));
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isLive]);
+
+  return (
+    <WorkspaceLayout
+      leftPanel={
+        <div className="space-y-4">
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-700">直播状态</h3>
+              <button
+                onClick={() => setIsLive(!isLive)}
+                className={`
+                  w-12 h-6 rounded-full transition-colors relative
+                  ${isLive ? 'bg-green-500' : 'bg-gray-300'}
+                `}
+              >
+                <span className={`
+                  absolute top-1 w-4 h-4 bg-white rounded-full transition-all
+                  ${isLive ? 'left-7' : 'left-1'}
+                `} />
+              </button>
+            </div>
+            <div className={`text-sm ${isLive ? 'text-green-600' : 'text-gray-400'}`}>
+              {isLive ? '● 正在直播' : '○ 已暂停'}
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">时间范围</h3>
+            <div className="flex gap-2">
+              {(['1h', '6h', '24h'] as const).map((range) => (
+                <button
+                  key={range}
+                  onClick={() => setTimeRange(range)}
+                  className={`
+                    flex-1 py-2 text-xs rounded transition-all
+                    ${timeRange === range 
+                      ? 'bg-purple-600 text-white' 
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}
+                  `}
+                >
+                  {range === '1h' ? '1小时' : range === '6h' ? '6小时' : '24小时'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">预警设置</h3>
+            <div className="space-y-3 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">在线人数低于</span>
+                <input 
+                  type="number" 
+                  defaultValue={50}
+                  className="w-16 px-2 py-1 border rounded text-right"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">转化率低于</span>
+                <input 
+                  type="number" 
+                  defaultValue={2}
+                  className="w-16 px-2 py-1 border rounded text-right"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">GMV低于</span>
+                <input 
+                  type="number" 
+                  defaultValue={1000}
+                  className="w-16 px-2 py-1 border rounded text-right"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+      centerPanel={
+        <div className="h-full flex flex-col p-6">
+          {/* 核心指标卡片 */}
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white">
+              <div className="text-xs opacity-80 mb-1">成交金额 (GMV)</div>
+              <div className="text-2xl font-bold">¥{metrics.gmv.toLocaleString()}</div>
+              <div className="text-xs mt-2 opacity-80">+12% 较上小时</div>
+            </div>
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white">
+              <div className="text-xs opacity-80 mb-1">实时在线</div>
+              <div className="text-2xl font-bold">{metrics.onlineCount}</div>
+              <div className="text-xs mt-2 opacity-80">峰值: 203</div>
+            </div>
+            <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white">
+              <div className="text-xs opacity-80 mb-1">成交订单</div>
+              <div className="text-2xl font-bold">{metrics.orderCount}</div>
+              <div className="text-xs mt-2 opacity-80">转化率 {metrics.conversionRate}%</div>
+            </div>
+          </div>
+
+          {/* 趋势图表 */}
+          <div className="flex-1 bg-gray-50 rounded-xl border border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-gray-700">实时趋势</h3>
+              <div className="flex gap-4 text-xs">
+                <span className="flex items-center gap-1">
+                  <span className="w-3 h-1 bg-purple-500 rounded"></span>
+                  GMV
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-3 h-1 bg-blue-500 rounded"></span>
+                  在线人数
+                </span>
+              </div>
+            </div>
+            
+            {/* 模拟实时曲线 */}
+            <div className="h-48 relative">
+              <svg className="w-full h-full" viewBox="0 0 400 150" preserveAspectRatio="none">
+                {/* GMV曲线 */}
+                <path
+                  d="M0,120 Q50,100 100,80 T200,60 T300,40 T400,20"
+                  fill="none"
+                  stroke="#8B5CF6"
+                  strokeWidth="2"
+                />
+                {/* 在线人数曲线 */}
+                <path
+                  d="M0,130 Q50,110 100,100 T200,90 T300,85 T400,80"
+                  fill="none"
+                  stroke="#3B82F6"
+                  strokeWidth="2"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+      }
+      rightPanel={
+        <div className="space-y-4">
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">流量层级</h3>
+            <div className="text-center py-4">
+              <div className="text-4xl font-bold text-purple-600">S级</div>
+              <div className="text-xs text-gray-500 mt-1">当前流量层级</div>
+            </div>
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-gray-500">曝光人数</span>
+                <span className="font-medium">12,456</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">进入率</span>
+                <span className="font-medium">18.5%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">停留时长</span>
+                <span className="font-medium">{metrics.avgWatchTime}s</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">商品排行</h3>
+            <div className="space-y-3">
+              {[
+                { name: '法式连衣裙', gmv: 45600, percent: 85 },
+                { name: '天丝衬衫', gmv: 32800, percent: 65 },
+                { name: '阔腿裤', gmv: 18200, percent: 35 },
+              ].map((item, i) => (
+                <div key={i}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-gray-700">{i + 1}. {item.name}</span>
+                    <span className="text-gray-500">¥{item.gmv.toLocaleString()}</span>
+                  </div>
+                  <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-purple-500 rounded-full" 
+                      style={{ width: `${item.percent}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+            <h3 className="text-xs font-semibold text-yellow-700 mb-2">⚠️ 智能提醒</h3>
+            <ul className="text-xs text-yellow-600 space-y-1">
+              <li>• 当前GPM低于均值15%</li>
+              <li>• 建议增加促单话术频率</li>
+              <li>• 停留时长下降，需加强互动</li>
+            </ul>
+          </div>
+        </div>
+      }
+    />
+  );
+}
+
+// ==================== 模式6: 排班管理 ====================
+
+function ScheduleManager() {
+  const [currentWeek, setCurrentWeek] = useState(0);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  
+  const scheduleData = [
+    { day: '周一', date: '04/21', anchor: '小芳', timeSlot: '14:00-18:00', status: 'confirmed', gmv: 45800 },
+    { day: '周二', date: '04/22', anchor: '小美', timeSlot: '19:00-23:00', status: 'confirmed', gmv: 52100 },
+    { day: '周三', date: '04/23', anchor: '小芳', timeSlot: '14:00-18:00', status: 'pending', gmv: null },
+    { day: '周四', date: '04/24', anchor: '-', timeSlot: '-', status: 'empty', gmv: null },
+    { day: '周五', date: '04/25', anchor: '小丽', timeSlot: '20:00-24:00', status: 'confirmed', gmv: null },
+    { day: '周六', date: '04/26', anchor: '小芳', timeSlot: '14:00-22:00', status: 'confirmed', gmv: null },
+    { day: '周日', date: '04/27', anchor: '小美', timeSlot: '14:00-22:00', status: 'confirmed', gmv: null },
+  ];
+
+  const anchorStats = [
+    { name: '小芳', hours: 32, gmv: 185600, conversion: 3.2, rating: 4.8 },
+    { name: '小美', hours: 28, gmv: 152300, conversion: 2.9, rating: 4.6 },
+    { name: '小丽', hours: 24, gmv: 128900, conversion: 3.5, rating: 4.9 },
+  ];
+
+  return (
+    <WorkspaceLayout
+      leftPanel={
+        <div className="space-y-4">
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">主播列表</h3>
+            <div className="space-y-3">
+              {anchorStats.map((anchor) => (
+                <div key={anchor.name} className="p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-gray-800">{anchor.name}</span>
+                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">
+                      {anchor.rating}★
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                    <div>本周{anchor.hours}h</div>
+                    <div>GMV ¥{(anchor.gmv / 10000).toFixed(1)}w</div>
+                    <div>转化 {anchor.conversion}%</div>
+                    <div className="text-green-600">在线</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">快捷操作</h3>
+            <div className="space-y-2">
+              <button className="w-full py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                + 新建排班
+              </button>
+              <button className="w-full py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">
+                导出排班表
+              </button>
+              <button className="w-full py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">
+                绩效报表
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+      centerPanel={
+        <div className="h-full flex flex-col p-6">
+          {/* 周选择器 */}
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-bold text-gray-800">排班日历</h2>
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => setCurrentWeek(w => w - 1)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <span className="text-sm font-medium text-gray-700">
+                2026年4月第{currentWeek + 3}周
+              </span>
+              <button 
+                onClick={() => setCurrentWeek(w => w + 1)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* 排班表格 */}
+          <div className="flex-1 bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="grid grid-cols-7 border-b border-gray-200">
+              {weekDays.map((day, i) => (
+                <div key={day} className="p-4 text-center border-r border-gray-100 last:border-r-0">
+                  <div className="text-sm font-medium text-gray-700">{day}</div>
+                  <div className="text-xs text-gray-400 mt-1">{scheduleData[i].date}</div>
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 h-64">
+              {scheduleData.map((item, i) => (
+                <div 
+                  key={i} 
+                  onClick={() => setSelectedDate(item.date)}
+                  className={`
+                    p-4 border-r border-gray-100 last:border-r-0 cursor-pointer transition-all
+                    ${selectedDate === item.date ? 'bg-purple-50' : 'hover:bg-gray-50'}
+                  `}
+                >
+                  {item.status === 'empty' ? (
+                    <div className="h-full flex items-center justify-center text-gray-300">
+                      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                        <span className="text-sm font-medium text-gray-800">{item.anchor}</span>
+                      </div>
+                      <div className="text-xs text-gray-500">{item.timeSlot}</div>
+                      {item.gmv && (
+                        <div className="text-xs text-purple-600 font-medium">
+                          ¥{(item.gmv / 10000).toFixed(1)}w
+                        </div>
+                      )}
+                      {item.status === 'pending' && (
+                        <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">
+                          待确认
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      }
+      rightPanel={
+        <div className="space-y-4">
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">本周概览</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <div className="text-lg font-bold text-purple-600">7</div>
+                <div className="text-xs text-gray-500">排班天数</div>
+              </div>
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <div className="text-lg font-bold text-purple-600">3</div>
+                <div className="text-xs text-gray-500">主播人数</div>
+              </div>
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <div className="text-lg font-bold text-purple-600">42h</div>
+                <div className="text-xs text-gray-500">总时长</div>
+              </div>
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <div className="text-lg font-bold text-green-600">97.8w</div>
+                <div className="text-xs text-gray-500">预估GMV</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">时段分布</h3>
+            <div className="space-y-3">
+              {[
+                { time: '早场 (06-12)', hours: 12, color: 'bg-yellow-400' },
+                { time: '午场 (12-18)', hours: 20, color: 'bg-blue-400' },
+                { time: '晚场 (18-24)', hours: 28, color: 'bg-purple-400' },
+              ].map((slot) => (
+                <div key={slot.time}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-gray-600">{slot.time}</span>
+                    <span className="text-gray-500">{slot.hours}h</span>
+                  </div>
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full ${slot.color} rounded-full`}
+                      style={{ width: `${(slot.hours / 60) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+            <h3 className="text-xs font-semibold text-green-700 mb-2">排班建议</h3>
+            <ul className="text-xs text-green-600 space-y-1">
+              <li>• 周四空档，建议安排新人试播</li>
+              <li>• 周末晚场流量峰值，建议排资深主播</li>
+              <li>• 小芳周三排班待确认</li>
+            </ul>
+          </div>
+        </div>
+      }
+    />
+  );
+}
+
 // ==================== ModeTransition ====================
 
 function ModeTransition() {
@@ -1137,6 +1785,8 @@ function ModeTransition() {
     spy: SpyIntelligence,
     training: TrainingSimulator,
     analysis: PostGameAnalysis,
+    dashboard: RealtimeDashboard,
+    schedule: ScheduleManager,
   };
 
   const Component = modeComponents[currentMode];
